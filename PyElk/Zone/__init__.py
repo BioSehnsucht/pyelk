@@ -186,7 +186,7 @@ class Zone(object):
         return time.time() - self._updated_at
 
     """
-    ElkEvent.ELK_EVENT_ALARM_ZONE_REPORT
+    PyElk.Event.EVENT_ALARM_ZONE_REPORT
     """
     def unpack_event_alarm_zone(self, event):
         data = event.data_dehex(True)[self._number-1]
@@ -198,7 +198,7 @@ class Zone(object):
             self._update_callback()
 
     """
-    ElkEvent.ELK_EVENT_ZONE_DEFINITION_REPLY
+    PyElk.Event.EVENT_ZONE_DEFINITION_REPLY
     """
     def unpack_event_zone_definition(self, event):
         data = event.data_dehex(True)[self._number-1]
@@ -210,7 +210,7 @@ class Zone(object):
             self._update_callback()
 
     """
-    ElkEvent.ELK_EVENT_ZONE_PARTITION_REPORT
+    PyElk.Event.EVENT_ZONE_PARTITION_REPORT
     """
     def unpack_event_zone_partition(self, event):
         data = event.data_dehex(True)[self._number-1]
@@ -222,7 +222,7 @@ class Zone(object):
             self._update_callback()
 
     """
-    ElkEvent.ELK_EVENT_ZONE_VOLTAGE_REPLY
+    PyElk.Event.EVENT_ZONE_VOLTAGE_REPLY
     """
     def unpack_event_zone_voltage(self, event):
         data = int(event._data_str[2:4]) / 10.0
@@ -234,7 +234,7 @@ class Zone(object):
             self._update_callback()
 
     """
-    ElkEvent.ELK_EVENT_ZONE_STATUS_REPORT
+    PyElk.Event.EVENT_ZONE_STATUS_REPORT
     """
     def unpack_event_zone_status_report(self, event):
         data = int(event.data_dehex()[self._number-1])
@@ -249,7 +249,7 @@ class Zone(object):
             self._update_callback()
 
     """
-    ElkEvent.ELK_EVENT_ZONE_UPDATE
+    PyElk.Event.EVENT_ZONE_UPDATE
     """
     def unpack_event_zone_update(self, event):
         data = int(event.data_dehex_str()[3:3])

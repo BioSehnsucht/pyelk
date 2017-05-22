@@ -83,7 +83,7 @@ class Keypad(object):
         self._pyelk = pyelk
 
     """
-    ELK_EVENT_KEYPAD_AREA_REPLY
+    PyElk.Event.EVENT_KEYPAD_AREA_REPLY
     """
     def unpack_event_keypad_area_reply(self, event):
         area = event.data_dehex(True)[self._number-1]
@@ -93,7 +93,7 @@ class Keypad(object):
         self._updated_at = event._time
 
     """
-    ELK_EVENT_KEYPAD_STATUS_REPORT
+    PyElk.Event.EVENT_KEYPAD_STATUS_REPORT
     """
     def unpack_event_keypad_status_report(self, event):
         key = int(event._data_str[:2])

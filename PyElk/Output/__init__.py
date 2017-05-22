@@ -26,7 +26,7 @@ class Output(object):
         self._pyelk = pyelk
 
     """
-    ElkEvent.ELK_EVENT_OUTPUT_STATUS_REPORT
+    PyElk.Event.EVENT_OUTPUT_STATUS_REPORT
     """
     def unpack_event_output_status_report(self, event):
         data = event.data_dehex()[self._number-1]
@@ -36,7 +36,7 @@ class Output(object):
         self._updated_at = event._time
 
     """
-    ElkEvent.ELK_EVENT_OUTPUT_UPDATE
+    PyElk.Event.EVENT_OUTPUT_UPDATE
     """
     def unpack_event_output_update(self, event):
         data = int(event.data_dehex()[3])

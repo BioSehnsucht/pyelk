@@ -10,91 +10,91 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Event(object):
-    ELK_EVENT_INSTALLER_CONNECT = 'RP' # ELKRP Connected
-    ELK_EVENT_INSTALLER_EXIT = 'IE' # Installer Program Mode Exited
+    EVENT_INSTALLER_CONNECT = 'RP' # ELKRP Connected
+    EVENT_INSTALLER_EXIT = 'IE' # Installer Program Mode Exited
 
-    ELK_EVENT_TROUBLE_STATUS = 'ss' # Request System Trouble Status
-    ELK_EVENT_TROUBLE_STATUS_REPLY = 'SS' # Reply System Trouble Status
+    EVENT_TROUBLE_STATUS = 'ss' # Request System Trouble Status
+    EVENT_TROUBLE_STATUS_REPLY = 'SS' # Reply System Trouble Status
 
-    ELK_EVENT_DISARM = 'a0' # Disarm
-    ELK_EVENT_ARM_AWAY = 'a1' # Arm to Away
-    ELK_EVENT_ARM_STAY = 'a2' # Arm to Stay (Home)
-    ELK_EVENT_ARM_STAY_INSTANT = 'a3' # Arm to Stay Instant
-    ELK_EVENT_ARM_NIGHT = 'a4' # Arm to Night
-    ELK_EVENT_ARM_NIGHT_INSTANT = 'a5' # Arm to Night Instant
-    ELK_EVENT_ARM_VACATION = 'a6' # Arm to Vacation
-    ELK_EVENT_ARM_NEXT_AWAY = 'a7' # Arm, Step to Next Away mode
-    ELK_EVENT_ARM_NEXT_STAY = 'a8' # Arm, Step to Next Stay mode
-    ELK_EVENT_ARM_FORCE_AWAY = 'a9' # Force Arm to Away Mode
-    ELK_EVENT_ARM_FORCE_STAY = 'a:' # Force Arm to Stay Mode
-    ELK_EVENT_ARMING_STATUS = 'as' # Arming Status Request
-    ELK_EVENT_ARMING_STATUS_REPORT = 'AS' # Reply Arming Status Report Data
-    ELK_EVENT_ALARM_ZONE = 'az' # Alarm By Zone Request
-    ELK_EVENT_ALARM_ZONE_REPORT = 'AZ' # Reply Alarm By zone Report Data
-    ELK_EVENT_ALARM_MEMORY = 'AM' # Alarm Memory Update
+    EVENT_DISARM = 'a0' # Disarm
+    EVENT_ARM_AWAY = 'a1' # Arm to Away
+    EVENT_ARM_STAY = 'a2' # Arm to Stay (Home)
+    EVENT_ARM_STAY_INSTANT = 'a3' # Arm to Stay Instant
+    EVENT_ARM_NIGHT = 'a4' # Arm to Night
+    EVENT_ARM_NIGHT_INSTANT = 'a5' # Arm to Night Instant
+    EVENT_ARM_VACATION = 'a6' # Arm to Vacation
+    EVENT_ARM_NEXT_AWAY = 'a7' # Arm, Step to Next Away mode
+    EVENT_ARM_NEXT_STAY = 'a8' # Arm, Step to Next Stay mode
+    EVENT_ARM_FORCE_AWAY = 'a9' # Force Arm to Away Mode
+    EVENT_ARM_FORCE_STAY = 'a:' # Force Arm to Stay Mode
+    EVENT_ARMING_STATUS = 'as' # Arming Status Request
+    EVENT_ARMING_STATUS_REPORT = 'AS' # Reply Arming Status Report Data
+    EVENT_ALARM_ZONE = 'az' # Alarm By Zone Request
+    EVENT_ALARM_ZONE_REPORT = 'AZ' # Reply Alarm By zone Report Data
+    EVENT_ALARM_MEMORY = 'AM' # Alarm Memory Update
 
-    ELK_EVENT_ENTRY_EXIT_TIMER = 'EE' # Entry / Exit Timer Data
+    EVENT_ENTRY_EXIT_TIMER = 'EE' # Entry / Exit Timer Data
 
-    ELK_EVENT_USER_CODE_ENTERED = 'IC' # Send Valid User Number And Invalid
+    EVENT_USER_CODE_ENTERED = 'IC' # Send Valid User Number And Invalid
                                        # User Code
 
-    ELK_EVENT_KEYPAD_AREA = 'ka' # Request Keypad Area Assignments
-    ELK_EVENT_KEYPAD_AREA_REPLY = 'KA' # Reply With Keypad Areas
-    ELK_EVENT_KEYPAD_STATUS = 'kc' # Request Keypad Function Key Illumination
-    ELK_EVENT_KEYPAD_STATUS_REPORT = 'KC' # Keypad KeyChange Update
+    EVENT_KEYPAD_AREA = 'ka' # Request Keypad Area Assignments
+    EVENT_KEYPAD_AREA_REPLY = 'KA' # Reply With Keypad Areas
+    EVENT_KEYPAD_STATUS = 'kc' # Request Keypad Function Key Illumination
+    EVENT_KEYPAD_STATUS_REPORT = 'KC' # Keypad KeyChange Update
                                    # Status
-    ELK_EVENT_KEYPAD_PRESS = 'kf' # Request Keypad Function Key Press
-    ELK_EVENT_KEYPAD_PRESS_REPLY = 'KF' # Reply Keypad Function Key Press
-    ELK_EVENT_KEYPAD_TEXT = 'dm' # Display Text on LCD Screen
+    EVENT_KEYPAD_PRESS = 'kf' # Request Keypad Function Key Press
+    EVENT_KEYPAD_PRESS_REPLY = 'KF' # Reply Keypad Function Key Press
+    EVENT_KEYPAD_TEXT = 'dm' # Display Text on LCD Screen
 
-    ELK_EVENT_TEMP_ALL = 'lw' # Request Temperature Data (All Zones / Keypads)
-    ELK_EVENT_TEMP_ALL_REPLY = 'LW' # Reply Temperature Data (All)
-    ELK_EVENT_TEMP_REQUEST = 'st' # Request Temperature format
-    ELK_EVENT_TEMP_REQUEST_REPLY = 'ST' # Reply With Requested Temperature
+    EVENT_TEMP_ALL = 'lw' # Request Temperature Data (All Zones / Keypads)
+    EVENT_TEMP_ALL_REPLY = 'LW' # Reply Temperature Data (All)
+    EVENT_TEMP_REQUEST = 'st' # Request Temperature format
+    EVENT_TEMP_REQUEST_REPLY = 'ST' # Reply With Requested Temperature
 
-    ELK_EVENT_SPEAK_WORD = 'sw' # Speak Word at Voice/Siren Output
-    ELK_EVENT_SPEAK_PHRASE = 'sp' # Speak Phrase at Voice/Siren Output
+    EVENT_SPEAK_WORD = 'sw' # Speak Word at Voice/Siren Output
+    EVENT_SPEAK_PHRASE = 'sp' # Speak Phrase at Voice/Siren Output
 
-    ELK_EVENT_TASK_ACTIVATE = 'tn' # Task Activation
-    ELK_EVENT_TASK_UPDATE = 'TC' # Tasks Change Update
+    EVENT_TASK_ACTIVATE = 'tn' # Task Activation
+    EVENT_TASK_UPDATE = 'TC' # Tasks Change Update
 
-    ELK_EVENT_VERSION = 'vn' # Request M1 Version Number
-    ELK_EVENT_VERSION_REPLY = 'VN' # Request M1 Version Reply
+    EVENT_VERSION = 'vn' # Request M1 Version Number
+    EVENT_VERSION_REPLY = 'VN' # Request M1 Version Reply
 
-    ELK_EVENT_OUTPUT_UPDATE = 'CC' # Output Change Update
-    ELK_EVENT_OUTPUT_OFF = 'cf' # Control Output Off
-    ELK_EVENT_OUTPUT_ON = 'cn' # Control Output On
-    ELK_EVENT_OUTPUT_STATUS = 'cs' # Control Output Status Request
-    ELK_EVENT_OUTPUT_STATUS_REPORT = 'CS' # Control Output Status Report
-    ELK_EVENT_OUTPUT_TOGGLE = 'ct' # Control Output Toggle
+    EVENT_OUTPUT_UPDATE = 'CC' # Output Change Update
+    EVENT_OUTPUT_OFF = 'cf' # Control Output Off
+    EVENT_OUTPUT_ON = 'cn' # Control Output On
+    EVENT_OUTPUT_STATUS = 'cs' # Control Output Status Request
+    EVENT_OUTPUT_STATUS_REPORT = 'CS' # Control Output Status Report
+    EVENT_OUTPUT_TOGGLE = 'ct' # Control Output Toggle
 
-    ELK_EVENT_ZONE_UPDATE = 'ZC' # Zone Change Update
-    ELK_EVENT_ZONE_BYPASS = 'zb' # Zone Bypass Request
-    ELK_EVENT_ZONE_BYPASS_REPLY = 'ZB' # Reply With Bypassed Zone State
-    ELK_EVENT_ZONE_PARTITION = 'zp' # Zone Partition Request
-    ELK_EVENT_ZONE_PARTITION_REPORT = 'ZP' # Zone Partition Report
-    ELK_EVENT_ZONE_STATUS = 'zs' # Zone Status Request
-    ELK_EVENT_ZONE_STATUS_REPORT = 'ZS' # Zone Status Report
-    ELK_EVENT_ZONE_DEFINITION = 'zd' # Request Zone Definition
-    ELK_EVENT_ZONE_DEFINITION_REPLY = 'ZD' # Reply Zone Definition Data
-    ELK_EVENT_ZONE_TRIGGER = 'zt' # Zone Trigger
-    ELK_EVENT_ZONE_VOLTAGE = 'zv' # Request Zone Voltage
-    ELK_EVENT_ZONE_VOLTAGE_REPLY = 'ZV' # Reply Zone Analog Voltage Data
+    EVENT_ZONE_UPDATE = 'ZC' # Zone Change Update
+    EVENT_ZONE_BYPASS = 'zb' # Zone Bypass Request
+    EVENT_ZONE_BYPASS_REPLY = 'ZB' # Reply With Bypassed Zone State
+    EVENT_ZONE_PARTITION = 'zp' # Zone Partition Request
+    EVENT_ZONE_PARTITION_REPORT = 'ZP' # Zone Partition Report
+    EVENT_ZONE_STATUS = 'zs' # Zone Status Request
+    EVENT_ZONE_STATUS_REPORT = 'ZS' # Zone Status Report
+    EVENT_ZONE_DEFINITION = 'zd' # Request Zone Definition
+    EVENT_ZONE_DEFINITION_REPLY = 'ZD' # Reply Zone Definition Data
+    EVENT_ZONE_TRIGGER = 'zt' # Zone Trigger
+    EVENT_ZONE_VOLTAGE = 'zv' # Request Zone Voltage
+    EVENT_ZONE_VOLTAGE_REPLY = 'ZV' # Reply Zone Analog Voltage Data
 
-    ELK_EVENT_VALUE_READ = 'cr' # Read Custom Value
-    ELK_EVENT_VALUE_READ_ALL = 'cp' # Read ALL Custom Values
-    ELK_EVENT_VALUE_READ_REPLY = 'CR' # Reply With Custom Value
-    ELK_EVENT_VALUE_READ_ALL_REPLY = 'CP' # Reply With ALL Custom Values
-    ELK_EVENT_VALUE_WRITE = 'cw' # Write Custom Value
+    EVENT_VALUE_READ = 'cr' # Read Custom Value
+    EVENT_VALUE_READ_ALL = 'cp' # Read ALL Custom Values
+    EVENT_VALUE_READ_REPLY = 'CR' # Reply With Custom Value
+    EVENT_VALUE_READ_ALL_REPLY = 'CP' # Reply With ALL Custom Values
+    EVENT_VALUE_WRITE = 'cw' # Write Custom Value
 
-    ELK_EVENT_COUNTER_READ = 'cv' # Read Counter Value
-    ELK_EVENT_COUNTER_WRITE = 'cx' # Write Counter Value
-    ELK_EVENT_COUNTER_REPLY = 'CV' # Reply With Counter Value Format
+    EVENT_COUNTER_READ = 'cv' # Read Counter Value
+    EVENT_COUNTER_WRITE = 'cx' # Write Counter Value
+    EVENT_COUNTER_REPLY = 'CV' # Reply With Counter Value Format
 
-    ELK_EVENT_DESCRIPTION = 'sd' # Request ASCII String Text Descriptions
-    ELK_EVENT_DESCRIPTION_REPLY = 'SD' # Reply with ASCII String Text
+    EVENT_DESCRIPTION = 'sd' # Request ASCII String Text Descriptions
+    EVENT_DESCRIPTION_REPLY = 'SD' # Reply with ASCII String Text
                                        # Description
-    ELK_EVENT_ETHERNET_TEST = 'XK' # Elk to M1XEP test ping / time heartbeat
+    EVENT_ETHERNET_TEST = 'XK' # Elk to M1XEP test ping / time heartbeat
 
     DESCRIPTION_ZONE_NAME = 0
     DESCRIPTION_AREA_NAME = 1
@@ -116,85 +116,85 @@ class Event(object):
     DESCRIPTION_FUNCTION_KEY_6_NAME = 17
 
     elk_auto_map = [
-            ELK_EVENT_INSTALLER_EXIT,
-            ELK_EVENT_ALARM_MEMORY,
-            ELK_EVENT_ENTRY_EXIT_TIMER,
-            ELK_EVENT_USER_CODE_ENTERED,
-            ELK_EVENT_TASK_UPDATE,
-            ELK_EVENT_OUTPUT_UPDATE,
-            ELK_EVENT_ZONE_UPDATE,
-            ELK_EVENT_KEYPAD_STATUS_REPORT,
-            ELK_EVENT_ETHERNET_TEST
+            EVENT_INSTALLER_EXIT,
+            EVENT_ALARM_MEMORY,
+            EVENT_ENTRY_EXIT_TIMER,
+            EVENT_USER_CODE_ENTERED,
+            EVENT_TASK_UPDATE,
+            EVENT_OUTPUT_UPDATE,
+            EVENT_ZONE_UPDATE,
+            EVENT_KEYPAD_STATUS_REPORT,
+            EVENT_ETHERNET_TEST
             ]
 
     elk_events_map = {
-        'RP' : ELK_EVENT_INSTALLER_CONNECT,
-        'IE' : ELK_EVENT_INSTALLER_EXIT,
-        'ss' : ELK_EVENT_TROUBLE_STATUS,
-        'SS' : ELK_EVENT_TROUBLE_STATUS_REPLY,
-        'a0' : ELK_EVENT_DISARM,
-        'a1' : ELK_EVENT_ARM_AWAY,
-        'a2' : ELK_EVENT_ARM_STAY,
-        'a3' : ELK_EVENT_ARM_STAY_INSTANT,
-        'a4' : ELK_EVENT_ARM_NIGHT,
-        'a5' : ELK_EVENT_ARM_NIGHT_INSTANT,
-        'a6' : ELK_EVENT_ARM_VACATION,
-        'a7' : ELK_EVENT_ARM_NEXT_AWAY,
-        'a8' : ELK_EVENT_ARM_NEXT_STAY,
-        'a9' : ELK_EVENT_ARM_FORCE_AWAY,
-        'a:' : ELK_EVENT_ARM_FORCE_STAY,
-        'as' : ELK_EVENT_ARMING_STATUS,
-        'AS' : ELK_EVENT_ARMING_STATUS_REPORT,
-        'az' : ELK_EVENT_ALARM_ZONE,
-        'AZ' : ELK_EVENT_ALARM_ZONE_REPORT,
-        'AM' : ELK_EVENT_ALARM_MEMORY,
-        'EE' : ELK_EVENT_ENTRY_EXIT_TIMER,
-        'IC' : ELK_EVENT_USER_CODE_ENTERED,
-        'ka' : ELK_EVENT_KEYPAD_AREA,
-        'KA' : ELK_EVENT_KEYPAD_AREA_REPLY,
-        'kc' : ELK_EVENT_KEYPAD_STATUS,
-        'KC' : ELK_EVENT_KEYPAD_STATUS_REPORT,
-        'kf' : ELK_EVENT_KEYPAD_PRESS,
-        'KF' : ELK_EVENT_KEYPAD_PRESS_REPLY,
-        'dm' : ELK_EVENT_KEYPAD_TEXT,
-        'lw' : ELK_EVENT_TEMP_ALL,
-        'LW' : ELK_EVENT_TEMP_ALL_REPLY,
-        'st' : ELK_EVENT_TEMP_REQUEST,
-        'ST' : ELK_EVENT_TEMP_REQUEST_REPLY,
-        'sw' : ELK_EVENT_SPEAK_WORD,
-        'sp' : ELK_EVENT_SPEAK_PHRASE,
-        'tn' : ELK_EVENT_TASK_ACTIVATE,
-        'TC' : ELK_EVENT_TASK_UPDATE,
-        'vn' : ELK_EVENT_VERSION,
-        'VN' : ELK_EVENT_VERSION_REPLY,
-        'CC' : ELK_EVENT_OUTPUT_UPDATE,
-        'cf' : ELK_EVENT_OUTPUT_OFF,
-        'cn' : ELK_EVENT_OUTPUT_ON,
-        'cs' : ELK_EVENT_OUTPUT_STATUS,
-        'CS' : ELK_EVENT_OUTPUT_STATUS_REPORT,
-        'ct' : ELK_EVENT_OUTPUT_TOGGLE,
-        'ZC' : ELK_EVENT_ZONE_UPDATE,
-        'zb' : ELK_EVENT_ZONE_BYPASS,
-        'ZB' : ELK_EVENT_ZONE_BYPASS_REPLY,
-        'zp' : ELK_EVENT_ZONE_PARTITION,
-        'ZP' : ELK_EVENT_ZONE_PARTITION_REPORT,
-        'zs' : ELK_EVENT_ZONE_STATUS,
-        'ZS' : ELK_EVENT_ZONE_STATUS_REPORT,
-        'zd' : ELK_EVENT_ZONE_DEFINITION,
-        'ZD' : ELK_EVENT_ZONE_DEFINITION_REPLY,
-        'zt' : ELK_EVENT_ZONE_TRIGGER,
-        'zv' : ELK_EVENT_ZONE_VOLTAGE,
-        'ZV' : ELK_EVENT_ZONE_VOLTAGE_REPLY,
-        'cr' : ELK_EVENT_VALUE_READ,
-        'cp' : ELK_EVENT_VALUE_READ_ALL,
-        'CR' : ELK_EVENT_VALUE_READ_REPLY,
-        'CP' : ELK_EVENT_VALUE_READ_ALL_REPLY,
-        'cw' : ELK_EVENT_VALUE_WRITE,
-        'cv' : ELK_EVENT_COUNTER_READ,
-        'cx' : ELK_EVENT_COUNTER_WRITE,
-        'CV' : ELK_EVENT_COUNTER_REPLY,
-        'sd' : ELK_EVENT_DESCRIPTION,
-        'SD' : ELK_EVENT_DESCRIPTION_REPLY
+        'RP' : EVENT_INSTALLER_CONNECT,
+        'IE' : EVENT_INSTALLER_EXIT,
+        'ss' : EVENT_TROUBLE_STATUS,
+        'SS' : EVENT_TROUBLE_STATUS_REPLY,
+        'a0' : EVENT_DISARM,
+        'a1' : EVENT_ARM_AWAY,
+        'a2' : EVENT_ARM_STAY,
+        'a3' : EVENT_ARM_STAY_INSTANT,
+        'a4' : EVENT_ARM_NIGHT,
+        'a5' : EVENT_ARM_NIGHT_INSTANT,
+        'a6' : EVENT_ARM_VACATION,
+        'a7' : EVENT_ARM_NEXT_AWAY,
+        'a8' : EVENT_ARM_NEXT_STAY,
+        'a9' : EVENT_ARM_FORCE_AWAY,
+        'a:' : EVENT_ARM_FORCE_STAY,
+        'as' : EVENT_ARMING_STATUS,
+        'AS' : EVENT_ARMING_STATUS_REPORT,
+        'az' : EVENT_ALARM_ZONE,
+        'AZ' : EVENT_ALARM_ZONE_REPORT,
+        'AM' : EVENT_ALARM_MEMORY,
+        'EE' : EVENT_ENTRY_EXIT_TIMER,
+        'IC' : EVENT_USER_CODE_ENTERED,
+        'ka' : EVENT_KEYPAD_AREA,
+        'KA' : EVENT_KEYPAD_AREA_REPLY,
+        'kc' : EVENT_KEYPAD_STATUS,
+        'KC' : EVENT_KEYPAD_STATUS_REPORT,
+        'kf' : EVENT_KEYPAD_PRESS,
+        'KF' : EVENT_KEYPAD_PRESS_REPLY,
+        'dm' : EVENT_KEYPAD_TEXT,
+        'lw' : EVENT_TEMP_ALL,
+        'LW' : EVENT_TEMP_ALL_REPLY,
+        'st' : EVENT_TEMP_REQUEST,
+        'ST' : EVENT_TEMP_REQUEST_REPLY,
+        'sw' : EVENT_SPEAK_WORD,
+        'sp' : EVENT_SPEAK_PHRASE,
+        'tn' : EVENT_TASK_ACTIVATE,
+        'TC' : EVENT_TASK_UPDATE,
+        'vn' : EVENT_VERSION,
+        'VN' : EVENT_VERSION_REPLY,
+        'CC' : EVENT_OUTPUT_UPDATE,
+        'cf' : EVENT_OUTPUT_OFF,
+        'cn' : EVENT_OUTPUT_ON,
+        'cs' : EVENT_OUTPUT_STATUS,
+        'CS' : EVENT_OUTPUT_STATUS_REPORT,
+        'ct' : EVENT_OUTPUT_TOGGLE,
+        'ZC' : EVENT_ZONE_UPDATE,
+        'zb' : EVENT_ZONE_BYPASS,
+        'ZB' : EVENT_ZONE_BYPASS_REPLY,
+        'zp' : EVENT_ZONE_PARTITION,
+        'ZP' : EVENT_ZONE_PARTITION_REPORT,
+        'zs' : EVENT_ZONE_STATUS,
+        'ZS' : EVENT_ZONE_STATUS_REPORT,
+        'zd' : EVENT_ZONE_DEFINITION,
+        'ZD' : EVENT_ZONE_DEFINITION_REPLY,
+        'zt' : EVENT_ZONE_TRIGGER,
+        'zv' : EVENT_ZONE_VOLTAGE,
+        'ZV' : EVENT_ZONE_VOLTAGE_REPLY,
+        'cr' : EVENT_VALUE_READ,
+        'cp' : EVENT_VALUE_READ_ALL,
+        'CR' : EVENT_VALUE_READ_REPLY,
+        'CP' : EVENT_VALUE_READ_ALL_REPLY,
+        'cw' : EVENT_VALUE_WRITE,
+        'cv' : EVENT_COUNTER_READ,
+        'cx' : EVENT_COUNTER_WRITE,
+        'CV' : EVENT_COUNTER_REPLY,
+        'sd' : EVENT_DESCRIPTION,
+        'SD' : EVENT_DESCRIPTION_REPLY
     }
 
 

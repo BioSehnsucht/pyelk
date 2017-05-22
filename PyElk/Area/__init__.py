@@ -122,7 +122,7 @@ class Area(object):
         self._pyelk = pyelk
 
     """
-    ElkEvent.ELK_EVENT_ARMING_STATUS_REPORT
+    PyElk.Event.EVENT_ARMING_STATUS_REPORT
     """
     def unpack_event_arming_status_report(self, event):
         status = event.data_dehex()[self._number-1]
@@ -136,7 +136,7 @@ class Area(object):
         self._updated_at = event._time
 
     """
-    ElkEvent.ELK_EVENT_ENTRY_EXIT_TIMER
+    PyElk.Event.EVENT_ENTRY_EXIT_TIMER
     """
     def unpack_event_entry_exit_timer(self, event):
         if (event._data[0] == '1'):
