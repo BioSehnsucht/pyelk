@@ -281,9 +281,9 @@ class Zone(object):
         return self._description
 
     def dump(self):
-        _LOGGER.error('Zone State: ' + str(repr(self.state())))
-        _LOGGER.error('Zone Status: ' + str(repr(self.status())))
-        _LOGGER.error('Zone Definition: ' + str(repr(self.definition())))
-        _LOGGER.error('Zone Description: ' + str(repr(self.description())))
+        _LOGGER.debug('Zone State: ' + str(repr(self.state())))
+        _LOGGER.debug('Zone Status: ' + str(repr(self.status())))
+        _LOGGER.debug('Zone Definition: ' + str(repr(self.definition())))
+        _LOGGER.debug('Zone Description: ' + str(repr(self.description())))
 
 

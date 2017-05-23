@@ -115,18 +115,6 @@ class Event(object):
     DESCRIPTION_FUNCTION_KEY_5_NAME = 16
     DESCRIPTION_FUNCTION_KEY_6_NAME = 17
 
-    elk_auto_map = [
-            EVENT_INSTALLER_EXIT,
-            EVENT_ALARM_MEMORY,
-            EVENT_ENTRY_EXIT_TIMER,
-            EVENT_USER_CODE_ENTERED,
-            EVENT_TASK_UPDATE,
-            EVENT_OUTPUT_UPDATE,
-            EVENT_ZONE_UPDATE,
-            EVENT_KEYPAD_STATUS_REPORT,
-            EVENT_ETHERNET_TEST
-            ]
-
     elk_events_map = {
         'RP' : EVENT_INSTALLER_CONNECT,
         'IE' : EVENT_INSTALLER_EXIT,
@@ -215,14 +203,14 @@ class Event(object):
         return time.time() - self._time
 
     def dump(self):
-        _LOGGER.error('Event Len: ' + str(repr(self._len)))
-        _LOGGER.error('Event Type: ' + str(repr(self._type)))
-        _LOGGER.error('Event Data: ' + str(repr(self._data)))
-        _LOGGER.error('Event Checksum: ' + str(repr(self._checksum)))
-        _LOGGER.error('Event Computed Checksum: ' + str(self.checksum_generate()))
+        _LOGGER.debug('Event Len: ' + str(repr(self._len)))
+        _LOGGER.debug('Event Type: ' + str(repr(self._type)))
+        _LOGGER.debug('Event Data: ' + str(repr(self._data)))
+        _LOGGER.debug('Event Checksum: ' + str(repr(self._checksum)))
+        _LOGGER.debug('Event Computed Checksum: ' + str(self.checksum_generate()))
 
     def parse(self, data):
-        _LOGGER.error('Parsing: {}\n'.format(repr(data)))
+        _LOGGER.debug('Parsing: {}\n'.format(repr(data)))
         self._len = data[:2]
         self._type = data[2:4]
         if (len(data) > 8):

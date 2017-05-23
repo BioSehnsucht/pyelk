@@ -57,6 +57,6 @@ class Output(object):
         return self._description
 
     def dump(self):
-        _LOGGER.error('Output Status: {}\n'.format(repr(self.status())))
-        _LOGGER.error('Output Description: {}\n'.format(repr(self.description())))
+        _LOGGER.debug('Output Status: {}\n'.format(repr(self.status())))
+        _LOGGER.debug('Output Description: {}\n'.format(repr(self.description())))
 
