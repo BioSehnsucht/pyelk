@@ -229,7 +229,7 @@ class Event(object):
         event_str += self._type 
         event_str += self._data_str
         event_str += self._reserved
-        self._len = format(len(event_str) + 2, '02x')
+        self._len = format(len(event_str) + 2, '02x').upper()
         self._checksum = self.checksum_generate(self._len + event_str)
         return self._len + event_str + self._checksum
 

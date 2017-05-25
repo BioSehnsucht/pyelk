@@ -34,12 +34,13 @@ if __name__ == '__main__':
     versions = ELK.get_version()
     from pprint import pprint
     pprint(versions)
-    #for o in range(0,208):
-    #    sys.stdout.write('Output {}: '.format(repr(ELK.OUTPUTS[o].description())))
-    #    sys.stdout.write('{}\n'.format(repr(ELK.OUTPUTS[o].status())))
+    for o in range(1,209):
+        sys.stdout.write('Output {}: '.format(repr(ELK.OUTPUTS[o].description())))
+        sys.stdout.write('{}\n'.format(repr(ELK.OUTPUTS[o].status())))
     
     #sys.stdout.write('Output count {}\n'.format(repr(len(ELK.OUTPUTS))))
     while True:
         ELK.update()
-        time.sleep(1)
+        time.sleep(15)
+        ELK.OUTPUTS[10].turn_on(10)
 

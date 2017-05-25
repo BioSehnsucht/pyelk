@@ -117,6 +117,7 @@ class Area(object):
     _timer_exit_2 = 0
     _number = 0
     _updated_at = 0
+    _update_callback = None
 
     def __init__(self, pyelk = None):
         self._pyelk = pyelk
@@ -134,6 +135,8 @@ class Area(object):
         self._arm_up = arm_up
         self._alarm = alarm
         self._updated_at = event._time
+        if self._update_callback:
+            self._update_callback()
 
     """
     PyElk.Event.EVENT_ENTRY_EXIT_TIMER
@@ -154,6 +157,9 @@ class Area(object):
             self._timer_exit_1 = timer_1
             self._timer_exit_2 = timer_2
         self._updated_at = event._time
+        if self._update_callback:
+            self._update_callback()
+                                
 
     def age(self):
         return time.time() - self._updated_at

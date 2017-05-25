@@ -276,7 +276,9 @@ class Zone(object):
         return self.DEFINITION_STR[self._definition]
 
     def description(self):
-        if (self._description == ''):
+        if (self._description == '') or (self._description == 'Zone ' + format(self._number,'03')):
+            """ If no description set, or it's the default (with zero padding to 3 digits)
+                return a nicer default """
             return 'Zone ' + str(self._number)
         return self._description
 

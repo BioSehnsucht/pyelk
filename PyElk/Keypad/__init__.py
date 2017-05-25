@@ -78,6 +78,7 @@ class Keypad(object):
     _code_bypass = False
     _number = 0
     _updated_at = 0
+    _update_callback = None
 
     def __init__(self, pyelk = None):
         self._pyelk = pyelk
@@ -91,6 +92,9 @@ class Keypad(object):
             return
         self._area = area
         self._updated_at = event._time
+        if self._update_callback:
+            self._update_callback()
+
 
     """
     PyElk.Event.EVENT_KEYPAD_STATUS_REPORT
@@ -110,6 +114,8 @@ class Keypad(object):
         for a in range(1,9):
             self._pyelk.AREAS[a]._chime_mode = event.data_dehex(True)[8+a-1]
         self._updated_at = event._time
+        if self._update_callback:
+            self._update_callback()
 
     def age(self):
         return time.time() - self._updated_at

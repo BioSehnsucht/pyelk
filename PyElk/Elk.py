@@ -113,7 +113,8 @@ class Elk(object):
         self._queue_incoming_elk_events = deque(maxlen=1000)
         self._queue_exported_events = deque(maxlen=1000)
 
-        # Using 0..N+1 and putting None in 0 so we aren't constantly converting between 0 and 1 based ...
+        # Using 0..N+1 and putting None in 0 so we aren't constantly converting between 0 and 1 based as often...
+        # May change back to 0..N at a later date 
         for z in range(0,209):
             if z == 0:
                 zone = None
@@ -224,8 +225,8 @@ class Elk(object):
     def elk_queue_process(self):
         _LOGGER.debug('elk_queue_process - checking events')
         for event in list(self._queue_incoming_elk_events):
-            """Remove stale events over 60 seconds old, normally shouldn't happen"""
-            if (event.age() > 60):
+            """Remove stale events over 120 seconds old, normally shouldn't happen"""
+            if (event.age() > 120):
                 self._queue_incoming_elk_events.remove(event)
                 _LOGGER.info('elk_queue_process - removing stale event: ' + str(repr(event._type)))
             elif (event._type in event_auto_map):
@@ -240,13 +241,16 @@ class Elk(object):
                     if (event._type == Event.EVENT_INSTALLER_EXIT):
                         """Initiate a rescan if the Elk just left 
                         installer mode and break out of the loop"""
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_EXIT')
                         self._rescan()
                         return
                     elif (event._type == Event.EVENT_ETHERNET_TEST):
                         """Consume ethernet test packets, but we don't do anything with them"""
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_ETHERNET_TEST')
                         continue
                     elif (event._type == Event.EVENT_ALARM_MEMORY):
                         """TODO: Implement"""
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_ALARM_MEMORY')
                         continue
                     elif (event._type == Event.EVENT_ENTRY_EXIT_TIMER):
                         """Entry/Exit timer started or updated"""
@@ -256,9 +260,11 @@ class Elk(object):
                         continue
                     elif (event._type == Event.EVENT_USER_CODE_ENTERED):
                         """TODO: Implement"""
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_USER_CODE_ENTERED')
                         continue
                     elif (event._type == Event.EVENT_TASK_UPDATE):
                         """TODO: Implement"""
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_TASK_UPDATE')
                         continue
                     elif (event._type == Event.EVENT_OUTPUT_UPDATE):
                         """Output changed state"""
