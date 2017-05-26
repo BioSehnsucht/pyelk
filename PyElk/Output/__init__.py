@@ -66,13 +66,13 @@ class Output(object):
     def turn_off(self):
         event = Event()
         event._type = Event.EVENT_OUTPUT_OFF
-        event._data_str = (self._number,'03')
+        event._data_str = format(self._number,'03')
         self._pyelk.elk_event_send(event)
 
     def toggle(self):
         event = Event()
         event._type = Event.EVENT_OUTPUT_TOGGLE
-        event._data_str = (self._number,'03')
+        event._data_str = format(self._number,'03')
         self._pyelk.elk_event_send(event)
 
     def age(self):

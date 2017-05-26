@@ -252,7 +252,7 @@ class Zone(object):
     PyElk.Event.EVENT_ZONE_UPDATE
     """
     def unpack_event_zone_update(self, event):
-        data = int(event.data_dehex_str()[3:3])
+        data = int(event.data_dehex()[3])
         state = data & 0b11
         status = (data & 0b1100) >> 2
         if ((self._state == state) and (self._status == status)):

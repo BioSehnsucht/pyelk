@@ -228,7 +228,7 @@ class Elk(object):
             """Remove stale events over 120 seconds old, normally shouldn't happen"""
             if (event.age() > 120):
                 self._queue_incoming_elk_events.remove(event)
-                _LOGGER.info('elk_queue_process - removing stale event: ' + str(repr(event._type)))
+                _LOGGER.error('elk_queue_process - removing stale event: ' + str(repr(event._type)))
             elif (event._type in event_auto_map):
                 """Event is one we handle automatically"""
                 if (self._rescan_in_progress) and (event._type in event_scan_map):

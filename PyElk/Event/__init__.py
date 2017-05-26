@@ -196,7 +196,7 @@ class Event(object):
     _time = 0
 
     def __init__(self, pyelk = None):
-        _time = time.time()
+        self._time = time.time()
         self._pyelk = pyelk
 
     def age(self):
@@ -224,7 +224,7 @@ class Event(object):
         
     def to_string(self):
         event_str = ''
-        if (self._data_str == ''):
+        if ((self._data_str == '') and (len(self._data) > 0)):
             self._data_str = ''.join(self._data)
         event_str += self._type 
         event_str += self._data_str
