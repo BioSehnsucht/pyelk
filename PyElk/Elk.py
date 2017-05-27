@@ -24,7 +24,9 @@ event_auto_map = [
     Event.EVENT_OUTPUT_UPDATE,
     Event.EVENT_ZONE_UPDATE,
     Event.EVENT_KEYPAD_STATUS_REPORT,
-    Event.EVENT_ETHERNET_TEST
+    Event.EVENT_ETHERNET_TEST,
+    Event.EVENT_ARMING_STATUS_REPORT,
+    Event.EVENT_ALARM_ZONE_REPORT
     ]
 
 """Events specifically NOT handled automatically while rescan in progress"""
@@ -254,7 +256,7 @@ class Elk(object):
                         continue
                     elif (event._type == Event.EVENT_ENTRY_EXIT_TIMER):
                         """Entry/Exit timer started or updated"""
-                        area_number = int(event._data_str[1])
+                        area_number = int(event._data[0])
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ENTRY_EXIT_TIMER')
                         self.AREAS[area_number].unpack_event_entry_exit_timer(event)
                         continue
@@ -284,6 +286,18 @@ class Elk(object):
                         _LOGGER.debug('elk_queue_process - Event.EVENT_KEYPAD_STATUS_REPORT')
                         self.KEYPADS[keypad_number].unpack_event_keypad_status_report(event)
                         continue
+                    elif (event._type == Event.EVENT_ARMING_STATUS_REPORT):
+                        """Alarm status changed"""
+                        for a in range (1,9):
+                            self.AREAS[a].unpack_event_arming_status_report(event)
+                        continue
+                    elif (event._type == Event.EVENT_ALARM_ZONE_REPORT):
+                        """Alarm zone changed"""
+                        for z in range (1,209):
+                            self.ZONES[z].unpack_event_alarm_zone(event)
+                        continue
+
+
 
     def get_version(self):
         event = Event()

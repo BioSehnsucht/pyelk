@@ -174,7 +174,7 @@ class Zone(object):
     _alarm = 0
     _number = 0
     _description = ''
-    _partition = 0
+    _area = 0
     _voltage = 0.0
     _updated_at = 0
     _update_callback = None
@@ -214,9 +214,10 @@ class Zone(object):
     """
     def unpack_event_zone_partition(self, event):
         data = event.data_dehex(True)[self._number-1]
-        if (self._partition == data):
+        if (self._area == data):
             return
-        self._partition = data
+        self._area = data
+        self._pyelk.AREAS[self._area]._member_zone[self._number] = True
         self._updated_at = event._time
         if self._update_callback:
             self._update_callback()

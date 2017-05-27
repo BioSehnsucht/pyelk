@@ -91,6 +91,7 @@ class Keypad(object):
         if (area == self._area):
             return
         self._area = area
+        self._pyelk.AREAS[self._area]._member_keypad[self._number] = True
         self._updated_at = event._time
         if self._update_callback:
             self._update_callback()

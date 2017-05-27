@@ -6,6 +6,8 @@ import serial.threaded
 import time
 import traceback
 
+from ..Event import Event
+
 _LOGGER = logging.getLogger(__name__)
 
 class Area(object):
@@ -26,6 +28,18 @@ class Area(object):
         STATUS_ARMED_NIGHT_INSTANT : 'Armed to Night Instant',
         STATUS_ARMED_VACATION : 'Armed to Vacation'
     }
+
+    ARM_DISARM = 0
+    ARM_AWAY = 1
+    ARM_STAY = 2
+    ARM_STAY_INSTANT = 3
+    ARM_NIGHT = 4
+    ARM_NIGHT_INSTANT = 5
+    ARM_VACATION = 6
+    ARM_NEXT_AWAY = 7
+    ARM_NEXT_STAY = 8
+    ARM_FORCE_AWAY = 9
+    ARM_FORCE_STAY = 10
 
     ARM_UP_NOT_READY = 0
     ARM_UP_READY = 1
@@ -118,9 +132,16 @@ class Area(object):
     _number = 0
     _updated_at = 0
     _update_callback = None
+    _description = ''
+    _member_zone = []
+    _member_keypad = []
 
     def __init__(self, pyelk = None):
         self._pyelk = pyelk
+        for z in range(0,209):
+            self._member_zone.append(False)
+        for k in range(0,17):
+            self._member_keypad.append(False)
 
     """
     PyElk.Event.EVENT_ARMING_STATUS_REPORT
@@ -160,6 +181,25 @@ class Area(object):
         if self._update_callback:
             self._update_callback()
                                 
+    @property
+    def alarm_active(self):
+        if self._alarm != self.ALARM_NONE:
+            return True
+        else:
+            return False
+
+    @property
+    def timers_active(self):
+        if self._timer_entrance_1 > 0:
+            return True
+        elif self._timer_entrance_2 > 0:
+            return True
+        elif self._timer_exit_1  > 0:
+            return True
+        elif self._timer_exit_2 > 0:
+            return True
+        else:
+            return False
 
     def age(self):
         return time.time() - self._updated_at
@@ -175,4 +215,58 @@ class Area(object):
 
     def chime_mode(self):
         return self._CHIME_MODE_STR(self._chime_mode)
+
+    def arm(self, desired_arm_level, user_code):
+        event = Event()
+        if (desired_arm_level == self.ARM_DISARM):
+            event._type = Event.EVENT_DISARM
+        elif (desired_arm_level == self.ARM_AWAY):
+            event._type = Event.EVENT_ARM_AWAY
+        elif (desired_arm_level == self.ARM_STAY):
+            event._type = Event.EVENT_ARM_STAY
+        elif (desired_arm_level == self.ARM_STAY_INSTANT):
+            event._type = Event.EVENT_ARM_STAY_INSTANT
+        elif (desired_arm_level == self.ARM_NIGHT):
+            event._type = Event.EVENT_ARM_NIGHT
+        elif (desired_arm_level == self.ARM_NIGHT_INSTANT):
+            event._type = Event.EVENT_ARM_NIGHT_INSTANT
+        elif (desired_arm_level == self.ARM_VACATION):
+            event._type = Event.EVENT_ARM_VACATION
+        elif (desired_arm_level == self.ARM_NEXT_AWAY):
+            event._type = Event.EVENT_ARM_NEXT_AWAY
+        elif (desired_arm_level == self.ARM_NEXT_STAY):
+            event._type = Event.EVENT_ARM_NEXT_STAY
+        elif (desired_arm_level == self.ARM_FORCE_AWAY):
+            event._type = Event.EVENT_ARM_FORCE_AWAY
+        elif (desired_arm_level == self.ARM_FORCE_STAY):
+            event._type = Event.EVENT_ARM_FORCE_STAY
+        event._data_str = str(self._number) + str(user_code).rjust(6,'0')
+        self._pyelk.elk_event_send(event)
+        return
+
+    def disarm(self, user_code):
+        return self.arm(self.ARM_DISARM, user_code)
+
+    def description(self):
+        if (self._description == '') or (self._description == 'Area ' + format(self._number,'03')):
+            """ If no description set, or it's the default (with zero padding to 3 digits)
+            return a nicer default """
+            return 'Area ' + str(self._number)
+        return self._description
+
+    @property
+    def member_zones(self):
+        count = 0
+        for z in range(1,209):
+            if self._member_zone[z] == True:
+                count += 1
+        return count
+
+    @property
+    def member_keypads(self):
+        count = 0
+        for k in range(1,17):
+            if self._member_keypad[k] == True:
+                count += 1
+        return count
 
