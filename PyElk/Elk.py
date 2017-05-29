@@ -26,7 +26,8 @@ event_auto_map = [
     Event.EVENT_KEYPAD_STATUS_REPORT,
     Event.EVENT_ETHERNET_TEST,
     Event.EVENT_ARMING_STATUS_REPORT,
-    Event.EVENT_ALARM_ZONE_REPORT
+    Event.EVENT_ALARM_ZONE_REPORT,
+    Event.EVENT_TEMP_REQUEST_REPLY
     ]
 
 """Events specifically NOT handled automatically while rescan in progress"""
@@ -41,7 +42,8 @@ event_scan_map = [
     Event.EVENT_ZONE_PARTITION_REPORT,
     Event.EVENT_ZONE_STATUS_REPORT,
     Event.EVENT_ZONE_UPDATE,
-    Event.EVENT_ZONE_VOLTAGE_REPLY
+    Event.EVENT_ZONE_VOLTAGE_REPLY,
+    Event.EVENT_TEMP_REQUEST_REPLY
     ]
 
 
@@ -208,15 +210,24 @@ class Elk(object):
         self._queue_incoming_elk_events.append(event)
         self.update()
 
-    def elk_event_scan(self, event_type, timeout = 10):
+    def elk_event_scan(self, event_type, data_match = None, timeout = 10):
         endtime = time.time() + timeout
         event = None
         while (time.time() <= endtime):
             for elem in list(self._queue_incoming_elk_events):
                 if (elem._type == event_type):
                     event = elem
-                    self._queue_incoming_elk_events.remove(elem)
-                    return event
+                    matched = True
+                    if (data_match is not None):
+                        matched = False
+                        for match_str in data_match:
+                            match_len = len(match_str)
+                            data_str = event._data_str[0:match_len]
+                            if (data_str == match_str):
+                                matched = True
+                    if (matched):
+                        self._queue_incoming_elk_events.remove(elem)
+                        return event
         else:
             _LOGGER.debug('elk_event_scan : timeout')
             return False
@@ -296,6 +307,25 @@ class Elk(object):
                         for z in range (1,209):
                             self.ZONES[z].unpack_event_alarm_zone(event)
                         continue
+                    elif (event._type == Event.EVENT_TEMP_REQUEST_REPLY):
+                        """Temp sensor update"""
+                        group = int(event._data[0])
+                        number = int(event._data_str[1:3])
+                        if (group == 0):
+                            """Group 0 temp probe (Zone 1-16)"""
+                            self.ZONES[number].unpack_event_temp_request_reply(event)
+                            continue
+                        elif (group == 1):
+                            """Group 1 temp probe (Keypad)"""
+                            self.KEYPADS[number].unpack_event_temp_request_reply(event)
+                            continue
+                        elif (group == 2):
+                            """Group 2 temp probe (Thermostat)"""
+                            continue
+                        elif (group == 7):
+                            """Requested group / number combination not a valid temperature sensor"""
+                            continue
+                        continue
 
 
 
@@ -361,9 +391,25 @@ class Elk(object):
                 reply = self.elk_event_scan(Event.EVENT_ZONE_VOLTAGE_REPLY)
                 if (reply):
                     _LOGGER.debug('scan_zones : got Event.EVENT_ZONE_VOLTAGE_REPLY')
-                    zone_number = int(reply._data_str[0:2])
+                    zone_number = int(reply._data_str[0:3])
                     self.ZONES[zone_number].unpack_event_zone_voltage(reply)
             z += 1
+
+        for z in range (1,17):
+            if (self.ZONES[z]._definition == Zone.DEFINITION_TEMPERATURE):
+                event = Event()
+                event._type = Event.EVENT_TEMP_REQUEST
+                event._data_str = '0' + format(z,'02')
+                self.elk_event_send(event)
+                reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY, [event._data_str,'7' + format(z,'02')])
+                if (reply):
+                    _LOGGER.debug('scan_zones : got Event.EVENT_TEMP_REQUEST_REPLY')
+                    group = int(reply._data[0])
+                    number = int(event._data_str[1:3])
+                    if ((group == '0') and (number == z)):
+                        self.ZONES[number].unpack_event_temp_request_reply(reply)
+                    else:
+                        _LOGGER.debug('scan_zones : error reading temperature, ' + str(number))
 
         z = 1
         while z < 209:
@@ -419,6 +465,20 @@ class Elk(object):
                     _LOGGER.debug('scan_keypads : got Event.EVENT_KEYPAD_STATUS_REPORT')
                     keypad_number = int(report._data_str[:2])
                     self.KEYPADS[keypad_number].unpack_event_keypad_status_report(report)
+                event = Event()
+                event._type = Event.EVENT_TEMP_REQUEST
+                event._data_str = '7' + format(k,'02')
+                self.elk_event_send(event)
+                temp_reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY, [event._data_str,'7' + format(k,'02')])
+                if (reply):
+                    _LOGGER.debug('scan_keypads : got Event.EVENT_TEMP_REQUEST_REPLY')
+                    group = int(temp_reply._data[0])
+                    number = int(temp_reply._data_str[1:3])
+                    if ((group == '0') and (number == k)):
+                        self.KEYPADS[keypad_number].unpack_event_temp_request_reply(temp_reply)
+                    else:
+                        _LOGGER.debug('scan_keypads : error reading temperature, ' + str(number))
+                
         else:
             return False
 

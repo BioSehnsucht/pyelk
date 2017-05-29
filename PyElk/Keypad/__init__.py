@@ -77,6 +77,7 @@ class Keypad(object):
     _illum = [0,0,0,0,0,0]
     _code_bypass = False
     _number = 0
+    _temp = -460
     _updated_at = 0
     _update_callback = None
 
@@ -118,6 +119,19 @@ class Keypad(object):
         if self._update_callback:
             self._update_callback()
 
+    """
+    PyElk.Event.Event.EVENT_TEMP_REQUEST_REPLY
+    """
+    def unpack_event_temp_request_reply(self, event):
+        data = int(event._data_str[4:6])
+        data = data - 40
+        self._temp = data
+        self._updated_at = event._time
+        if self._update_callback:
+            self._update_callback()
+
     def age(self):
         return time.time() - self._updated_at
 
+    def description(self):
+        return 'Keypad ' + str(self._number)
