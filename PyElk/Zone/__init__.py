@@ -269,7 +269,7 @@ class Zone(object):
     PyElk.Event.Event.EVENT_TEMP_REQUEST_REPLY
     """
     def unpack_event_temp_request_reply(self, event):
-        data = int(event._data_str[4:6])        
+        data = int(event._data_str[3:6])
         data = data - 60
         self._temp = data
         self._updated_at = event._time
