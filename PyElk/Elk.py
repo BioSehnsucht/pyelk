@@ -467,7 +467,7 @@ class Elk(object):
                     self.KEYPADS[keypad_number].unpack_event_keypad_status_report(report)
                 event = Event()
                 event._type = Event.EVENT_TEMP_REQUEST
-                event._data_str = '7' + format(k,'02')
+                event._data_str = '1' + format(k,'02')
                 self.elk_event_send(event)
                 temp_reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY, [event._data_str,'7' + format(k,'02')])
                 if (reply):
