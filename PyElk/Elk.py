@@ -213,6 +213,8 @@ class Elk(object):
     def elk_event_scan(self, event_type, data_match = None, timeout = 10):
         endtime = time.time() + timeout
         event = None
+        if (type(data_match) is not list) and (data_match is not None):
+            data_match = [data_match]
         while (time.time() <= endtime):
             for elem in list(self._queue_incoming_elk_events):
                 if (elem._type == event_type):
@@ -322,9 +324,6 @@ class Elk(object):
                         elif (group == 2):
                             """Group 2 temp probe (Thermostat)"""
                             continue
-                        elif (group == 7):
-                            """Requested group / number combination not a valid temperature sensor"""
-                            continue
                         continue
 
 
@@ -401,12 +400,13 @@ class Elk(object):
                 event._type = Event.EVENT_TEMP_REQUEST
                 event._data_str = '0' + format(z,'02')
                 self.elk_event_send(event)
-                reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY, [event._data_str,'7' + format(z,'02')])
+                reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY, '0' + format(z,'02'))
                 if (reply):
                     _LOGGER.debug('scan_zones : got Event.EVENT_TEMP_REQUEST_REPLY')
                     group = int(reply._data[0])
                     number = int(event._data_str[1:3])
-                    if ((group == '0') and (number == z)):
+                    _LOGGER.debug('scan_zones : temperature group={} number={} rawtemp={}'.format(group, number, reply._data_str[3:6]))
+                    if ((group == 0) and (number == z)):
                         self.ZONES[number].unpack_event_temp_request_reply(reply)
                     else:
                         _LOGGER.debug('scan_zones : error reading temperature, ' + str(number))
@@ -469,12 +469,13 @@ class Elk(object):
                 event._type = Event.EVENT_TEMP_REQUEST
                 event._data_str = '1' + format(k,'02')
                 self.elk_event_send(event)
-                temp_reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY, [event._data_str,'7' + format(k,'02')])
-                if (reply):
+                temp_reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY, '1' + format(k,'02'))
+                if (temp_reply):
                     _LOGGER.debug('scan_keypads : got Event.EVENT_TEMP_REQUEST_REPLY')
                     group = int(temp_reply._data[0])
                     number = int(temp_reply._data_str[1:3])
-                    if ((group == '0') and (number == k)):
+                    _LOGGER.debug('scan_keypads : temperature group={} number={} rawtemp={}'.format(group, number, temp_reply._data_str[3:    6]))
+                    if ((group == 1) and (number == k)):
                         self.KEYPADS[keypad_number].unpack_event_temp_request_reply(temp_reply)
                     else:
                         _LOGGER.debug('scan_keypads : error reading temperature, ' + str(number))
