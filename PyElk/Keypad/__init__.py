@@ -1,14 +1,14 @@
 from collections import namedtuple
 from collections import deque
 import logging
-import serial
-import serial.threaded
 import time
 import traceback
 
+from ..Node import Node
+
 _LOGGER = logging.getLogger(__name__)
 
-class Keypad(object):
+class Keypad(Node):
 
     PRESSED_NONE = 0
     PRESSED_1 = 1
@@ -72,36 +72,38 @@ class Keypad(object):
         PRESSED_DATAKEYMODE : 'Data Entered'
     }
 
-    _area = 0
-    _pressed = 0
-    _illum = [0,0,0,0,0,0]
-    _code_bypass = False
-    _number = 0
-    _temp = -460
-    _updated_at = 0
-    _update_callback = None
+    def __init__(self, pyelk = None, number = None):
+        """Initializes Keypad object.
 
-    def __init__(self, pyelk = None):
-        self._pyelk = pyelk
+        pyelk: Pyelk.Elk object that this object is for (default None).
+        number: Index number of this object (default None).
+        """
+        # Let Node initialize common things
+        super(Keypad, self).__init__(pyelk, number)
+        # Initialize Keypad specific things
+        self._pressed = 0
+        self._illum = [0,0,0,0,0,0]
+        self._code_bypass = False
+        self._temp = -460
 
-    """
-    PyElk.Event.EVENT_KEYPAD_AREA_REPLY
-    """
+    def description(self):
+        """Keypad description, as text string (auto-generated if not set)."""
+        return super(Keypad, self).description('Keypad ')
+
     def unpack_event_keypad_area_reply(self, event):
+        """Unpack EVENT_KEYPAD_AREA_REPLY."""
         area = event.data_dehex(True)[self._number-1]
-        if (area == self._area):
-            return
         self._area = area
-        self._pyelk.AREAS[self._area]._member_keypad[self._number] = True
+        for a in range(1,9):
+            self._pyelk.AREAS[a]._member_keypad[self._number] = False
+        if self._area > 0:
+            self._pyelk.AREAS[self._area]._member_keypad[self._number] = True
+
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-
-    """
-    PyElk.Event.EVENT_KEYPAD_STATUS_REPORT
-    """
     def unpack_event_keypad_status_report(self, event):
+        """Unpack EVENT_KEYPAD_STATUS_REPORT."""
         key = int(event._data_str[:2])
         if (key == self._pressed):
             return
@@ -112,26 +114,17 @@ class Keypad(object):
             self._code_bypass = True
         else:
             self._code_bypass = False
-        # By area, not keypad
+        # Chime is actually by area, not keypad, even though
+        # it is returned from the keypad status report.
         for a in range(1,9):
             self._pyelk.AREAS[a]._chime_mode = event.data_dehex(True)[8+a-1]
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-    """
-    PyElk.Event.Event.EVENT_TEMP_REQUEST_REPLY
-    """
     def unpack_event_temp_request_reply(self, event):
+        """Unpack EVENT_TEMP_REQUEST_REPLY."""
         data = int(event._data_str[3:6])
         data = data - 40
         self._temp = data
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
-
-    def age(self):
-        return time.time() - self._updated_at
-
-    def description(self):
-        return 'Keypad ' + str(self._number)
+        self._callback()

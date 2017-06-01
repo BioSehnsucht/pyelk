@@ -1,8 +1,6 @@
 from collections import namedtuple
 from collections import deque
 import logging
-import serial
-import serial.threaded
 import time
 import traceback
 
@@ -185,24 +183,26 @@ class Event(object):
         'SD' : EVENT_DESCRIPTION_REPLY
     }
 
-
-
-    _len = 0
-    _type = ''
-    _data = []
-    _data_str = ''
-    _reserved = '00'
-    _checksum = ''
-    _time = 0
-
     def __init__(self, pyelk = None):
+        """Initialize Event object.
+
+        pyelk: Pyelk.Elk object that this object is for (default None).
+        """
+        self._len = 0
+        self._type = ''
+        self._data = []
+        self._data_str = ''
+        self._reserved = '00'
+        self._checksum = ''
         self._time = time.time()
         self._pyelk = pyelk
 
     def age(self):
+        """Age of the event (time since event was received)."""
         return time.time() - self._time
 
     def dump(self):
+        """Dump debugging data, to be removed."""
         _LOGGER.debug('Event Len: ' + str(repr(self._len)))
         _LOGGER.debug('Event Type: ' + str(repr(self._type)))
         _LOGGER.debug('Event Data: ' + str(repr(self._data)))
@@ -210,6 +210,7 @@ class Event(object):
         _LOGGER.debug('Event Computed Checksum: ' + str(self.checksum_generate()))
 
     def parse(self, data):
+        """Parse event packet."""
         _LOGGER.debug('Parsing: {}\n'.format(repr(data)))
         self._len = data[:2]
         self._type = data[2:4]
@@ -221,12 +222,13 @@ class Event(object):
             self._data = []
         self._reserved = data[-4:-2]
         self._checksum = data[-2:]
-        
+
     def to_string(self):
+        """Convert event data to string to be sent on the wire."""
         event_str = ''
         if ((self._data_str == '') and (len(self._data) > 0)):
             self._data_str = ''.join(self._data)
-        event_str += self._type 
+        event_str += self._type
         event_str += self._data_str
         event_str += self._reserved
         self._len = format(len(event_str) + 2, '02x').upper()
@@ -234,6 +236,10 @@ class Event(object):
         return self._len + event_str + self._checksum
 
     def checksum_generate(self, data = False):
+        """Generate checksum for event.
+
+        data: If set, is used instead of the data in the event object.
+        """
         if (data == False):
             data = self._len + self._type + self._data_str + self._reserved
         CC = 0
@@ -245,6 +251,7 @@ class Event(object):
         return format(CC, '02x').upper()
 
     def checksum_check(self):
+        """Check if calculated checksum matches expected."""
         calculated = self.checksum_generate()
         if (calculated == self._checksum):
             return True
@@ -252,7 +259,14 @@ class Event(object):
             return False
 
     def data_dehex(self, fake = False):
-        data = [] 
+        """Convert ASCII hex data into integer data.
+
+        fake: Set if not really ASCII hex, but instead is using all
+        values from '0' onwards as offset by ord '0' from 0 (i.e. the
+        value ':' is valid, and transates to 10, ';' is 11 ... 'A' is
+        17, ...).
+        """
+        data = []
         for i in range(0,len(self._data)):
             data.append(ord(self._data[i]) - ord('0'))
             if (not fake) and (data[i] > 9):
@@ -260,10 +274,16 @@ class Event(object):
         return data
 
     def data_str_dehex(self, fake = False):
+        """Convert ASCII hex data into string data.
+
+        fake: Set if not really ASCII hex, but instead is using all
+        values from '0' onwards as offset by ord '0' from 0 (i.e. the
+        value ':' is valid, and transates to 10, ';' is 11 ... 'A' is
+        17, ...).
+        """
         data = []
         for i in range(0,len(self._data)):
             data.append(str(ord(self._data[i]) - ord('0')))
             if (not fake) and (ord(data[i]) > 9):
                 data[i] = str(ord(data[i]) - 7)
         return ''.join(data)
-    

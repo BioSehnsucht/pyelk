@@ -1,16 +1,15 @@
 from collections import namedtuple
 from collections import deque
 import logging
-import serial
-import serial.threaded
 import time
 import traceback
 
+from ..Node import Node
 from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
-class Output(object):
+class Output(Node):
     STATUS_OFF = 0
     STATUS_ON = 1
 
@@ -19,41 +18,26 @@ class Output(object):
         STATUS_ON : 'On'
     }
 
-    _status = 0
-    _number = 0
-    _description = ''
-    _updated_at = 0
-    _update_callback = None
+    def __init__(self, pyelk = None, number = None):
+        """Initializes Output object.
 
-    def __init__(self, pyelk = None):
-        self._pyelk = pyelk
+        pyelk: Pyelk.Elk object that this object is for (default None).
+        number: Index number of this object (default None).
+        """
+        # Let Node initialize common things
+        super(Output, self).__init__(pyelk, number)
+        # Initialize Output specific things
+        # (none currently)
 
-    """
-    PyElk.Event.EVENT_OUTPUT_STATUS_REPORT
-    """
-    def unpack_event_output_status_report(self, event):
-        data = event.data_dehex()[self._number-1]
-        if (self._status == data):
-            return
-        self._status = data
-        self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
-
-
-    """
-    PyElk.Event.EVENT_OUTPUT_UPDATE
-    """
-    def unpack_event_output_update(self, event):
-        data = int(event.data_dehex()[3])
-        if (self._status == data):
-            return
-        self._status = data
-        self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+    def description(self):
+        """Output description, as text string (auto-generated if not set)."""
+        return super(Output, self).description('Output ')
 
     def turn_on(self, duration = 0):
+        """Turn on output, optionally for a specified duration.
+
+        duration: Duration in seconds for output to turn on, 0 is inf.
+        """
         event = Event()
         event._type = Event.EVENT_OUTPUT_ON
         if duration < 0:
@@ -64,29 +48,39 @@ class Output(object):
         self._pyelk.elk_event_send(event)
 
     def turn_off(self):
+        """Turn off output."""
         event = Event()
         event._type = Event.EVENT_OUTPUT_OFF
         event._data_str = format(self._number,'03')
         self._pyelk.elk_event_send(event)
 
     def toggle(self):
+        """Toggle output state."""
         event = Event()
         event._type = Event.EVENT_OUTPUT_TOGGLE
         event._data_str = format(self._number,'03')
         self._pyelk.elk_event_send(event)
 
-    def age(self):
-        return time.time() - self._updated_at
-
-    def status(self):
-        return self.STATUS_STR[self._status]
-
-    def description(self):
-        if (self._description == ''):
-            return 'Output ' + str(self._number)
-        return self._description
 
     def dump(self):
+        """Dump debugging data, to be removed."""
         _LOGGER.debug('Output Status: {}\n'.format(repr(self.status())))
         _LOGGER.debug('Output Description: {}\n'.format(repr(self.description())))
 
+    def unpack_event_output_status_report(self, event):
+        """Unpack EVENT_OUTPUT_STATUS_REPORT."""
+        data = event.data_dehex()[self._number-1]
+        if (self._status == data):
+            return
+        self._status = data
+        self._updated_at = event._time
+        self._callback()
+
+    def unpack_event_output_update(self, event):
+        """Unpack EVENT_OUTPUT_UPDATE."""
+        data = int(event.data_dehex()[3])
+        if (self._status == data):
+            return
+        self._status = data
+        self._updated_at = event._time
+        self._callback()

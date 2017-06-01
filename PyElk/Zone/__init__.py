@@ -1,24 +1,26 @@
 from collections import namedtuple
 from collections import deque
 import logging
-import serial
-import serial.threaded
 import time
 import traceback
+from ..Node import Node
 
 _LOGGER = logging.getLogger(__name__)
 
-class Zone(object):
+class Zone(Node):
+    # Possible (input) States for a Zone
     STATE_UNCONFIGURED = 0
     STATE_OPEN = 1
     STATE_EOL = 2
     STATE_SHORT = 3
 
+    # Possible Statuses for a Zone
     STATUS_NORMAL = 0
     STATUS_TROUBLE = 1
     STATUS_VIOLATED = 2
     STATUS_BYPASSED = 3
 
+    # Possible Definitions (types) for a Zone
     DEFINITION_DISABLED = 0
     DEFINITION_BURGLAR_1 = 1
     DEFINITION_BURGLAR_2 = 2
@@ -57,6 +59,7 @@ class Zone(object):
     DEFINITION_PHONE_KEY = 35
     DEFINITION_INTERCOM_KEY = 36
 
+    # Possible Alarm configurations for a Zone
     ALARM_DISABLED = 0
     ALARM_BURGLAR_1 = 1
     ALARM_BURGLAR_2 = 2
@@ -84,7 +87,7 @@ class Zone(object):
     ALARM_POLICE_NO_INDICATION = 24
     ALARM_WATER_ALARM = 25
 
-
+    # Text strings for States
     STATE_STR = {
         STATE_UNCONFIGURED : 'Unconfigured',
         STATE_OPEN : 'Open',
@@ -92,6 +95,7 @@ class Zone(object):
         STATE_SHORT : 'Short'
         }
 
+    # Text strings for Statuses
     STATUS_STR = {
         STATUS_NORMAL : 'Normal',
         STATUS_TROUBLE : 'Trouble',
@@ -99,6 +103,7 @@ class Zone(object):
         STATUS_BYPASSED : 'Bypassed'
         }
 
+    # Text strings for Definitions
     DEFINITION_STR = {
         DEFINITION_DISABLED : 'Disabled',
         DEFINITION_BURGLAR_1 : 'Burglar Entry/Exit 1',
@@ -139,6 +144,7 @@ class Zone(object):
         DEFINITION_INTERCOM_KEY : 'Intercom Key'
         }
 
+    # Test strings for Alarm configurations
     ALARM_STR = {
         ALARM_DISABLED : 'Disabled',
         ALARM_BURGLAR_1 : 'Burglar Entry/Exit 1',
@@ -168,77 +174,84 @@ class Zone(object):
         ALARM_WATER_ALARM : 'Water Alarm'
         }
 
-    _state = 0
-    _status = 0
-    _definition = 0
-    _alarm = 0
-    _number = 0
-    _description = ''
-    _area = 0
-    _voltage = 0.0
-    _temp = -460
-    _updated_at = 0
-    _update_callback = None
+    def __init__(self, pyelk = None, number = None):
+        """Initializes Zone object.
 
-    def __init__(self, pyelk = None):
-        self._pyelk = pyelk
+        pyelk: Pyelk.Elk object that this object is for (default None).
+        number: Index number of this object (default None).
+        """
+        # Let Node initialize common things
+        super(Zone, self).__init__(pyelk, number)
+        # Initialize Zone specific things
+        self._state = 0
+        self._definition = 0
+        self._alarm = 0
+        self._voltage = 0.0
+        self._temp = -460
 
-    def age(self):
-        return time.time() - self._updated_at
+    def description(self):
+        """Output description, as text string (auto-generated if not set)."""
+        return super(Zone, self).description('Zone ')
 
-    """
-    PyElk.Event.EVENT_ALARM_ZONE_REPORT
-    """
+    def state(self):
+        """Zone's current State as text string."""
+        return self.STATE_STR[self._state]
+
+    def alarm(self):
+        """Zone's Alarm type configuration as text string."""
+        return self.ALARM_STR[self._alarm]
+
+    def definition(self):
+        """Zone's Definition type configuration as text string."""
+        return self.DEFINITION_STR[self._definition]
+
+    def dump(self):
+        """Dump debugging data, to be removed."""
+        _LOGGER.debug('Zone State: ' + str(repr(self.state())))
+        _LOGGER.debug('Zone Status: ' + str(repr(self.status())))
+        _LOGGER.debug('Zone Definition: ' + str(repr(self.definition())))
+        _LOGGER.debug('Zone Description: ' + str(repr(self.description())))
+
     def unpack_event_alarm_zone(self, event):
+        """Unpack EVENT_ALARM_ZONE_REPORT."""
         data = event.data_dehex(True)[self._number-1]
         if (self._alarm == data):
             return
         self._alarm = data
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-    """
-    PyElk.Event.EVENT_ZONE_DEFINITION_REPLY
-    """
     def unpack_event_zone_definition(self, event):
+        """Unpack EVENT_ZONE_DEFINITION_REPLY."""
         data = event.data_dehex(True)[self._number-1]
         if (self._definition == data):
             return
         self._definition = data
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-    """
-    PyElk.Event.EVENT_ZONE_PARTITION_REPORT
-    """
     def unpack_event_zone_partition(self, event):
+        """Unpack EVENT_ZONE_PARTITION_REPORT."""
         data = event.data_dehex(True)[self._number-1]
-        if (self._area == data):
-            return
         self._area = data
-        self._pyelk.AREAS[self._area]._member_zone[self._number] = True
+        for a in range (1,9):
+            self._pyelk.AREAS[a]._member_zone[self._number] = False
+        if self._area > 0:
+            self._pyelk.AREAS[self._area]._member_zone[self._number] = True
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-    """
-    PyElk.Event.EVENT_ZONE_VOLTAGE_REPLY
-    """
     def unpack_event_zone_voltage(self, event):
+        """Unpack EVENT_ZONE_VOLTAGE_REPLY."""
         data = int(event._data_str[2:4]) / 10.0
         if (self._voltage == data):
             return
         self._voltage = data
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-    """
-    PyElk.Event.EVENT_ZONE_STATUS_REPORT
-    """
     def unpack_event_zone_status_report(self, event):
+        """Unpack EVENT_ZONE_STATUS_REPORT."""
         data = int(event.data_dehex()[self._number-1])
         state = data & 0b11
         status = (data & 0b1100) >> 2
@@ -247,13 +260,10 @@ class Zone(object):
         self._state = state
         self._status = status
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-    """
-    PyElk.Event.EVENT_ZONE_UPDATE
-    """
     def unpack_event_zone_update(self, event):
+        """Unpack EVENT_ZONE_UPDATE."""
         data = int(event.data_dehex()[3])
         state = data & 0b11
         status = (data & 0b1100) >> 2
@@ -262,43 +272,12 @@ class Zone(object):
         self._state = state
         self._status = status
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
+        self._callback()
 
-    """
-    PyElk.Event.Event.EVENT_TEMP_REQUEST_REPLY
-    """
     def unpack_event_temp_request_reply(self, event):
+        """Unpack EVENT_TEMP_REQUEST_REPLY."""
         data = int(event._data_str[3:6])
         data = data - 60
         self._temp = data
         self._updated_at = event._time
-        if self._update_callback:
-            self._update_callback()
-
-    def state(self):
-        return self.STATE_STR[self._state]
-
-    def status(self):
-        return self.STATUS_STR[self._status]
-
-    def alarm(self):
-        return self.ALARM_STR[self._alarm]
-
-    def definition(self):
-        return self.DEFINITION_STR[self._definition]
-
-    def description(self):
-        if (self._description == '') or (self._description == 'Zone ' + format(self._number,'03')):
-            """ If no description set, or it's the default (with zero padding to 3 digits)
-                return a nicer default """
-            return 'Zone ' + str(self._number)
-        return self._description
-
-    def dump(self):
-        _LOGGER.debug('Zone State: ' + str(repr(self.state())))
-        _LOGGER.debug('Zone Status: ' + str(repr(self.status())))
-        _LOGGER.debug('Zone Definition: ' + str(repr(self.definition())))
-        _LOGGER.debug('Zone Description: ' + str(repr(self.description())))
-
-
+        self._callback()
