@@ -68,7 +68,12 @@ class Output(Node):
         _LOGGER.debug('Output Description: {}\n'.format(repr(self.description())))
 
     def unpack_event_output_status_report(self, event):
-        """Unpack EVENT_OUTPUT_STATUS_REPORT."""
+        """Unpack EVENT_OUTPUT_STATUS_REPORT.
+
+        Event data format: D[208]
+        D[208]: 208 byte ASCII array of output status,
+        '0' is off, '1' is on
+        """
         data = event.data_dehex()[self._number-1]
         if (self._status == data):
             return
@@ -77,7 +82,12 @@ class Output(Node):
         self._callback()
 
     def unpack_event_output_update(self, event):
-        """Unpack EVENT_OUTPUT_UPDATE."""
+        """Unpack EVENT_OUTPUT_UPDATE.
+
+        Event data format: ZZZS
+        ZZZ: Output number, ASCII decimal
+        S: Output state, '0' is off, '1' is on
+        """
         data = int(event.data_dehex()[3])
         if (self._status == data):
             return

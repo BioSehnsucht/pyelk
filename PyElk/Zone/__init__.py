@@ -227,6 +227,10 @@ class Zone(Node):
         if (self._definition == data):
             return
         self._definition = data
+        if ((self._state == self.STATE_UNCONFIGURED) and (self._definition == self.DEFINITION_DISABLED)):
+            self._enabled = False
+        else:
+            self._enabled = True
         self._updated_at = event._time
         self._callback()
 
@@ -259,6 +263,10 @@ class Zone(Node):
             return
         self._state = state
         self._status = status
+        if ((self._state == self.STATE_UNCONFIGURED) and (self._definition == self.DEFINITION_DISABLED)):
+            self._enabled = False
+        else:
+            self._enabled = True
         self._updated_at = event._time
         self._callback()
 
@@ -275,7 +283,13 @@ class Zone(Node):
         self._callback()
 
     def unpack_event_temp_request_reply(self, event):
-        """Unpack EVENT_TEMP_REQUEST_REPLY."""
+        """Unpack EVENT_TEMP_REQUEST_REPLY.
+
+        Event data format: GNNDDD
+        G: Requested Group ('0')
+        NN: Device number in group (2 decimal ASCII digits)
+        DDD: Temperature in ASCII decimal (offset by -60 for true value)
+        """
         data = int(event._data_str[3:6])
         data = data - 60
         self._temp = data

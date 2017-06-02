@@ -17,6 +17,8 @@ class Node(object):
         self._area = None
         # Index number of this object
         self._number = number
+        # Device enabled ?
+        self._enabled = True
         # Status of the object
         self._status = None
         # Description of the object

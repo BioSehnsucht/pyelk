@@ -50,6 +50,10 @@ class Event(object):
     EVENT_TEMP_REQUEST = 'st' # Request Temperature format
     EVENT_TEMP_REQUEST_REPLY = 'ST' # Reply With Requested Temperature
 
+    EVENT_THERMOSTAT_DATA_REQUEST = 'tr' # Request Thermostat Data
+    EVENT_THERMOSTAT_DATA_REPLY = 'TR' # Reply Thermostat Data
+    EVENT_THERMOSTAT_SET = 'ts' # Set Thermostat Data
+
     EVENT_SPEAK_WORD = 'sw' # Speak Word at Voice/Siren Output
     EVENT_SPEAK_PHRASE = 'sp' # Speak Phrase at Voice/Siren Output
 
@@ -206,6 +210,7 @@ class Event(object):
         _LOGGER.debug('Event Len: ' + str(repr(self._len)))
         _LOGGER.debug('Event Type: ' + str(repr(self._type)))
         _LOGGER.debug('Event Data: ' + str(repr(self._data)))
+        _LOGGER.debug('Event Data Str: ' + repr(self._data))
         _LOGGER.debug('Event Checksum: ' + str(repr(self._checksum)))
         _LOGGER.debug('Event Computed Checksum: ' + str(self.checksum_generate()))
 

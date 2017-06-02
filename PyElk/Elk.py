@@ -13,6 +13,7 @@ from .Zone import Zone
 from .Output import Output
 from .Area import Area
 from .Keypad import Keypad
+from .Thermostat import Thermostat
 
 # Events automatically handled under normal circumstances
 # by elk_process_event
@@ -28,7 +29,8 @@ event_list_auto = [
     Event.EVENT_ETHERNET_TEST,
     Event.EVENT_ARMING_STATUS_REPORT,
     Event.EVENT_ALARM_ZONE_REPORT,
-    Event.EVENT_TEMP_REQUEST_REPLY
+    Event.EVENT_TEMP_REQUEST_REPLY,
+    Event.EVENT_THERMOSTAT_DATA_REPLY
     ]
 
 # Events specifically NOT handled automatically by elk_process_event
@@ -45,7 +47,8 @@ event_list_rescan_blacklist = [
     Event.EVENT_ZONE_STATUS_REPORT,
     Event.EVENT_ZONE_UPDATE,
     Event.EVENT_ZONE_VOLTAGE_REPLY,
-    Event.EVENT_TEMP_REQUEST_REPLY
+    Event.EVENT_TEMP_REQUEST_REPLY,
+    Event.EVENT_THERMOSTAT_DATA_REPLY
     ]
 
 
@@ -120,6 +123,7 @@ class Elk(object):
         self.OUTPUTS = []
         self.AREAS = []
         self.KEYPADS = []
+        self.THERMOSTATS = []
 
         # Using 0..N+1 and putting None in 0 so we aren't constantly converting between 0 and 1 based as often...
         # May change back to 0..N at a later date
@@ -156,6 +160,14 @@ class Elk(object):
                 keypad = Keypad(self)
                 keypad._number = k
             self.KEYPADS.append(keypad)
+        # Create 16 Thermostats
+        for t in range(0,17):
+            if t == 0:
+                thermostat = None
+            else:
+                thermostat = Thermostat(self)
+                thermostat._number = t
+            self.THERMOSTATS.append(thermostat)
 
         if log is None:
             self.log = logging.getLogger(__name__)
@@ -210,6 +222,7 @@ class Elk(object):
         self.scan_outputs()
         self.scan_areas()
         self.scan_keypads()
+        self.scan_thermostats()
         self._rescan_in_progress = False
 
     def exported_event_enqueue(self, data):
@@ -343,18 +356,23 @@ class Elk(object):
                         continue
                     elif (event._type == Event.EVENT_ARMING_STATUS_REPORT):
                         # Alarm status changed
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_ARMING_STATUS_REPORT')
                         for a in range (1,9):
                             self.AREAS[a].unpack_event_arming_status_report(event)
                         continue
                     elif (event._type == Event.EVENT_ALARM_ZONE_REPORT):
                         # Alarm zone changed
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_ALARM_ZONE_REPORT')
                         for z in range (1,209):
                             self.ZONES[z].unpack_event_alarm_zone(event)
                         continue
                     elif (event._type == Event.EVENT_TEMP_REQUEST_REPLY):
                         # Temp sensor update
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_TEMP_REQUEST_REPLY')
                         group = int(event._data[0])
                         number = int(event._data_str[1:3])
+                        if number == 0:
+                            continue
                         if (group == 0):
                             # Group 0 temp probe (Zone 1-16)
                             self.ZONES[number].unpack_event_temp_request_reply(event)
@@ -365,10 +383,16 @@ class Elk(object):
                             continue
                         elif (group == 2):
                             # Group 2 temp probe (Thermostat)
+                            self.THERMOSTATS[number].unpack_event_temp_request_reply(event)
                             continue
                         continue
-
-
+                    elif (event._type == Event.EVENT_THERMOSTAT_DATA_REPLY):
+                        # Thermostat update
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_THERMOSTAT_DATA_REPLY')
+                        number = int(event._data_str[0:2])
+                        if (number > 0):
+                            self.THERMOSTATS[number].unpack_event_thermostat_data_reply(event)
+                        continue
 
     def get_version(self):
         """Get Elk and (if available) M1XEP version information."""
@@ -524,7 +548,7 @@ class Elk(object):
                     _LOGGER.debug('scan_keypads : got Event.EVENT_TEMP_REQUEST_REPLY')
                     group = int(temp_reply._data[0])
                     number = int(temp_reply._data_str[1:3])
-                    _LOGGER.debug('scan_keypads : temperature group={} number={} rawtemp={}'.format(group, number, temp_reply._data_str[3:    6]))
+                    _LOGGER.debug('scan_keypads : temperature group={} number={} rawtemp={}'.format(group, number, temp_reply._data_str[3:6]))
                     if ((group == 1) and (number == k)):
                         self.KEYPADS[keypad_number].unpack_event_temp_request_reply(temp_reply)
                     else:
@@ -535,7 +559,20 @@ class Elk(object):
         else:
             return False
 
-
+    def scan_thermostats(self):
+        """Scan all Thermostats and their information."""
+        for t in range (1,17):
+            event = Event()
+            event._type = Event.EVENT_THERMOSTAT_DATA_REQUEST
+            event._data_str = format(t,'02')
+            self.elk_event_send(event)
+            reply = self.elk_event_scan(Event.EVENT_THERMOSTAT_DATA_REPLY, format(t,'02'))
+            if reply:
+                _LOGGER.debug('scan_thermostats : got Event.EVENT_THERMOSTAT_DATA_REPLY')
+                self.THERMOSTATS[t].unpack_event_thermostat_data_reply(reply)
+        t = 1
+        while t < 17:
+            t = self.get_description(Event.DESCRIPTION_THERMOSTAT_NAME,t)
 
     def get_description(self, description_type, number):
         """Request string description from Elk.

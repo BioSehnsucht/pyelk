@@ -91,7 +91,12 @@ class Keypad(Node):
         return super(Keypad, self).description('Keypad ')
 
     def unpack_event_keypad_area_reply(self, event):
-        """Unpack EVENT_KEYPAD_AREA_REPLY."""
+        """Unpack EVENT_KEYPAD_AREA_REPLY.
+
+        Event data format: D[16]
+        D[16]: 16 byte ASCII character array of area assignments, where
+        '0' is no area assigned, '1' is assigned to Area 1, etc
+        """
         area = event.data_dehex(True)[self._number-1]
         self._area = area
         for a in range(1,9):
@@ -103,7 +108,16 @@ class Keypad(Node):
         self._callback()
 
     def unpack_event_keypad_status_report(self, event):
-        """Unpack EVENT_KEYPAD_STATUS_REPORT."""
+        """Unpack EVENT_KEYPAD_STATUS_REPORT.
+
+        Event data format: NNDDLLLLLLCPPPPPPPP
+        NN: Keypad number in ASCII decimal
+        DD: Key number pressed (see PRESSED_* constants)
+        L[6]: 6 byte ASCII character array indicating keypad function
+        key illumination status (0 = off, 1 = on, 2 = blinking)
+        C: If '1', code required to bypass
+        P[8]: Beep and chime mode per Area (See Area constants)
+        """
         key = int(event._data_str[:2])
         if (key == self._pressed):
             return
@@ -122,9 +136,19 @@ class Keypad(Node):
         self._callback()
 
     def unpack_event_temp_request_reply(self, event):
-        """Unpack EVENT_TEMP_REQUEST_REPLY."""
+        """Unpack EVENT_TEMP_REQUEST_REPLY.
+
+        Event data format: GNNDDD
+        G: Requested Group ('1')
+        NN: Device number in group (2 decimal ASCII digits)
+        DDD: Temperature in ASCII decimal (offset by -40 for true value)
+        """
         data = int(event._data_str[3:6])
         data = data - 40
         self._temp = data
+        if (self._temp == -40):
+            self._temp_enabled = False
+        else:
+            self._temp_enabled = True
         self._updated_at = event._time
         self._callback()
