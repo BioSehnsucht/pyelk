@@ -93,7 +93,7 @@ class Thermostat(Node):
 
         event = Event()
         event._type = Event.EVENT_THERMOSTAT_SET
-        event._data_str = format(self._number,'02')
+        event._data_str = format(self._number,'02') \
         + format(value,'02') + format(setting,'01')
         self._pyelk.elk_event_send(event)
 
@@ -107,12 +107,20 @@ class Thermostat(Node):
         self._set_thermostat(self.SET_FAN, value)
 
     def set_setpoint_cool(value):
+        if value < 1:
+            value = 1
+        elif value > 99:
+            value = 99
         self._set_thermostat(self.SETPOINT_COOL, value)
 
     def set_setpoint_heat(value):
+        if value < 1:
+            value = 1
+        elif value > 99:
+            value = 99
         self._set_thermostat(self.SETPOINT_HEAT, value)
 
-    def request_temp():
+    def request_temp(self):
         self._set_thermostat(self.SET_GET_TEMP, 0)
 
     def unpack_event_temp_request_reply(self, event):
