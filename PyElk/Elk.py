@@ -235,9 +235,6 @@ class Elk(object):
         event = Event()
         event._type = Event.EVENT_VERSION
         self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_VERSION_REPLY)
-        if (reply):
-            self.unpack_event_version_reply(reply)
         self.scan_zones()
         self.scan_outputs()
         self.scan_areas()
@@ -430,7 +427,8 @@ class Elk(object):
                         continue
                     elif (event._type == Event.EVENT_VERSION_REPLY):
                         # Version reply
-                        self.unpack_event_version_reply(reply)
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_VERSION_REPLY')
+                        self.unpack_event_version_reply(event)
                         continue
 
     def get_version(self):
