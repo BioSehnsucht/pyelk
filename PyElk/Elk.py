@@ -33,6 +33,7 @@ event_list_auto = [
     Event.EVENT_TEMP_REQUEST_REPLY,
     Event.EVENT_THERMOSTAT_DATA_REPLY,
     Event.EVENT_PLC_CHANGE_UPDATE,
+    Event.EVENT_VERSION_REPLY,
     ]
 
 # Events specifically NOT handled automatically by elk_process_event
