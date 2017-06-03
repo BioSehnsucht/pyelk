@@ -25,10 +25,18 @@ class Node(object):
         self._description = None
         # Time object was last updated at
         self._updated_at = None
-        # Callback method for updates
-        self._update_callback = None
+        # Callback methods for updates
+        self._update_callbacks = []
         # Pyelk.Elk object that this object is for
         self._pyelk = pyelk
+
+    def callback_add(self, method):
+        """Add a method to list of callbacks to be called on update."""
+        self._update_callbacks.append(method)
+
+    def callback_remove(self, method):
+        """Remove a method from list of callbacks to be called on update."""
+        self._update_callbacks.remove(method)
 
     def age(self):
         """Age of the current object state (time since last update)."""
@@ -53,5 +61,5 @@ class Node(object):
 
     def _callback(self):
         """Perform update callback, if possible."""
-        if self._update_callback:
-            self._update_callback()
+        for callback in  self._update_callbacks:
+            callback()
