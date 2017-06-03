@@ -14,6 +14,7 @@ from .Output import Output
 from .Area import Area
 from .Keypad import Keypad
 from .Thermostat import Thermostat
+from .X10 import X10
 
 # Events automatically handled under normal circumstances
 # by elk_process_event
@@ -30,7 +31,8 @@ event_list_auto = [
     Event.EVENT_ARMING_STATUS_REPORT,
     Event.EVENT_ALARM_ZONE_REPORT,
     Event.EVENT_TEMP_REQUEST_REPLY,
-    Event.EVENT_THERMOSTAT_DATA_REPLY
+    Event.EVENT_THERMOSTAT_DATA_REPLY,
+    Event.EVENT_PLC_CHANGE_UPDATE,
     ]
 
 # Events specifically NOT handled automatically by elk_process_event
@@ -48,7 +50,8 @@ event_list_rescan_blacklist = [
     Event.EVENT_ZONE_UPDATE,
     Event.EVENT_ZONE_VOLTAGE_REPLY,
     Event.EVENT_TEMP_REQUEST_REPLY,
-    Event.EVENT_THERMOSTAT_DATA_REPLY
+    Event.EVENT_THERMOSTAT_DATA_REPLY,
+    Event.EVENT_PLC_STATUS_REPLY,
     ]
 
 
@@ -124,6 +127,7 @@ class Elk(object):
         self.AREAS = []
         self.KEYPADS = []
         self.THERMOSTATS = []
+        self.X10 = []
 
         # Using 0..N+1 and putting None in 0 so we aren't constantly converting between 0 and 1 based as often...
         # May change back to 0..N at a later date
@@ -168,6 +172,15 @@ class Elk(object):
                 thermostat = Thermostat(self)
                 thermostat._number = t
             self.THERMOSTATS.append(thermostat)
+        # Create 256 X10 devices
+        for x in range(0,257):
+            if x == 0:
+                device = None
+            else:
+                device = X10(self)
+                device._house = X10._house_from_int(x-1)
+                device._number = X10._device_from_int(x-1)
+            self.X10.append(device)
 
         if log is None:
             self.log = logging.getLogger(__name__)
@@ -218,11 +231,18 @@ class Elk(object):
         programming mode (via Keypad or ElkRP).
         """
         self._rescan_in_progress = True
+        event = Event()
+        event._type = Event.EVENT_VERSION
+        self.elk_event_send(event)
+        reply = self.elk_event_scan(Event.EVENT_VERSION_REPLY)
+        if (reply):
+            self.unpack_event_version_reply(reply)
         self.scan_zones()
         self.scan_outputs()
         self.scan_areas()
         self.scan_keypads()
         self.scan_thermostats()
+        self.scan_x10()
         self._rescan_in_progress = False
 
     def exported_event_enqueue(self, data):
@@ -311,10 +331,16 @@ class Elk(object):
                         # Initiate a rescan if the Elk just left
                         # installer mode and break out of the loop
                         _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_EXIT')
+                        # This needs to be spun into another thread probably, or done async
                         self._rescan()
                         return
+                    elif (event._type == Event.EVENT_INSTALLER_CONNECT):
+                        # Consume Installer Connect events
+                        # but we don't do anything with them
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_CONNECT')
+                        continue
                     elif (event._type == Event.EVENT_ETHERNET_TEST):
-                        # Consume ethernet test packets,
+                        # Consume ethernet test events,
                         # but we don't do anything with them
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ETHERNET_TEST')
                         continue
@@ -393,20 +419,34 @@ class Elk(object):
                         if (number > 0):
                             self.THERMOSTATS[number].unpack_event_thermostat_data_reply(event)
                         continue
+                    elif (event._type == Event.EVENT_PLC_CHANGE_UPDATE):
+                        # PLC Change Update
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_PLC_CHANGE_UPDATE')
+                        house = ord(event._data_str[0]) - ord('A')
+                        device = int(event._data_str[1:3])
+                        offset = 1 + (house * 16) + device
+                        self.X10[offset].unpack_event_plc_change_update(event)
+                        continue
+                    elif (event._type == Event.EVENT_VERSION_REPLY):
+                        # Version reply
+                        self.unpack_event_version_reply(reply)
+                        continue
 
     def get_version(self):
         """Get Elk and (if available) M1XEP version information."""
-        event = Event()
-        event._type = Event.EVENT_VERSION
-        self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_VERSION_REPLY)
-        if (reply):
-            version_elk = reply._data_str[:2] + '.' + reply._data_str[2:4] + '.' + reply._data_str[4:6]
-            version_m1xep = reply._data_str[6:8] + '.' + reply._data_str[8:10] + '.' + reply._data_str[10:12]
-            self._elk_versions = {'Elk M1' : version_elk, 'M1XEP' : version_m1xep}
-            return self._elk_versions
-        else:
-            return False
+        return self._elk_versions
+
+    def unpack_event_version_reply(self, event):
+        """Unpack Event.EVENT_VERSION_REPLY.
+
+        Event data format: UUMMLLuummllD[36]
+        UUMMLL: M1 version, UU=Most, MM=Middle, LL=Least significant
+        uummll: M1XEP version, UU=Most, MM=Middle, LL=Least significant
+        D[36]: 36 zeros for future use
+        """
+        version_elk = event._data_str[:2] + '.' + event._data_str[2:4] + '.' + event._data_str[4:6]
+        version_m1xep = event._data_str[6:8] + '.' + event._data_str[8:10] + '.' + event._data_str[10:12]
+        self._elk_versions = {'Elk M1' : version_elk, 'M1XEP' : version_m1xep}
 
     def scan_zones(self):
         """Scan all Zones and their information."""
@@ -483,7 +523,7 @@ class Elk(object):
                         _LOGGER.debug('scan_zones : error reading temperature, ' + str(number))
         # Get Zone descriptions
         z = 1
-        while z < 209:
+        while (z) and (z < 209):
             z = self.get_description(Event.DESCRIPTION_ZONE_NAME,z)
 
     def scan_outputs(self):
@@ -500,7 +540,7 @@ class Elk(object):
             return False
 
         o = 1
-        while o < 209:
+        while (o) and (o < 209):
             o = self.get_description(Event.DESCRIPTION_OUTPUT_NAME,o)
 
     def scan_areas(self):
@@ -517,7 +557,7 @@ class Elk(object):
             return False
 
         a = 1
-        while a < 9:
+        while (a) and (a < 9):
             a = self.get_description(Event.DESCRIPTION_AREA_NAME,a)
 
     def scan_keypads(self):
@@ -554,7 +594,7 @@ class Elk(object):
                     else:
                         _LOGGER.debug('scan_keypads : error reading temperature, ' + str(number))
             k = 1
-            while k < 17:
+            while (k) and (k < 17):
                 k = self.get_description(Event.DESCRIPTION_KEYPAD_NAME,k)
         else:
             return False
@@ -571,8 +611,25 @@ class Elk(object):
                 _LOGGER.debug('scan_thermostats : got Event.EVENT_THERMOSTAT_DATA_REPLY')
                 self.THERMOSTATS[t].unpack_event_thermostat_data_reply(reply)
         t = 1
-        while t < 17:
+        while (t) and (t < 17):
             t = self.get_description(Event.DESCRIPTION_THERMOSTAT_NAME,t)
+
+    def scan_x10(self):
+        """Scan all X10 devices and their information."""
+        for b in range (0,4):
+            event = Event()
+            event._type = Event.EVENT_PLC_STATUS_REQUEST
+            event._data_str = format(b,'01')
+            self.elk_event_send(event)
+            reply = self.elk_event_scan(Event.EVENT_PLC_STATUS_REPLY, format(b,'01'))
+            if reply:
+                _LOGGER.debug('scan_x10 : got Event.EVENT_PLC_STATUS_REPLY')
+                offset = (b*4*16)
+                for x in range (b+1,b+17):
+                    self.X10[x].unpack_event_plc_status_reply(reply)
+        x = 1
+        while (x) and (x < 257):
+            x = self.get_description(Event.DESCRIPTION_LIGHT_NAME,x)
 
     def get_description(self, description_type, number):
         """Request string description from Elk.
@@ -605,4 +662,4 @@ class Elk(object):
                 elif (reply_type == Event.DESCRIPTION_KEYPAD_NAME):
                     self.KEYPADS[reply_number]._description = reply_name.strip()
                 return (reply_number+1)
-        return 255
+        return False

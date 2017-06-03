@@ -83,6 +83,14 @@ class Event(object):
     EVENT_ZONE_VOLTAGE = 'zv' # Request Zone Voltage
     EVENT_ZONE_VOLTAGE_REPLY = 'ZV' # Reply Zone Analog Voltage Data
 
+    EVENT_PLC_CONTROL = 'pc' # Control any PLC device
+    EVENT_PLC_CHANGE_UPDATE = 'PC' # PLC Change Update
+    EVENT_PLC_TURN_OFF = 'pf' # Turn OFF PLC Device
+    EVENT_PLC_TURN_ON = 'pn' # Turn ON PLC Device
+    EVENT_PLC_STATUS_REQUEST = 'ps' # Request PLC Status
+    EVENT_PLC_STATUS_REPLY = 'PS' # Returned PLC Status
+    EVENT_PLC_TOGGLE = 'pt' # Toggle PLC Device
+
     EVENT_VALUE_READ = 'cr' # Read Custom Value
     EVENT_VALUE_READ_ALL = 'cp' # Read ALL Custom Values
     EVENT_VALUE_READ_REPLY = 'CR' # Reply With Custom Value
