@@ -52,6 +52,8 @@ class Node(object):
         prefix: Prefix to compare against / auto-generate with.
         """
         if (self._description is None) or (self._description == '') \
+        or (self._description == prefix.strip() + format(self._number,'02')) \
+        or (self._description == prefix.strip() + format(self._number,'03')) \
         or (self._description == prefix + format(self._number,'02')) \
         or (self._description == prefix + format(self._number,'03')):
             # If no description set, or it's the default (with zero

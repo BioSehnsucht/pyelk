@@ -98,7 +98,7 @@ class X10(Node):
             self._enabled = False
         else:
             self._enabled = True
-        return super(Output, self).description('Light')
+        return super(X10, self).description('Light ')
 
     def set_level(self, level):
         """Set brightness level of device.
@@ -208,7 +208,7 @@ class X10(Node):
         D[64]: 64 byte array ASCII encoded (D - 48 = 0); 0 = OFF, 1 = ON, 2-99 = light%
         """
         offset = ((self._house * 16) + self._number) % 64
-        state = int(event.data_dehex(True)[offset]) - 48
+        state = int(event.data_dehex(True)[offset])
         self._state_from_int(state)
         self._updated_at = event._time
         self._callback()

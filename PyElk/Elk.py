@@ -661,5 +661,7 @@ class Elk(object):
                     self.AREAS[reply_number]._description = reply_name.strip()
                 elif (reply_type == Event.DESCRIPTION_KEYPAD_NAME):
                     self.KEYPADS[reply_number]._description = reply_name.strip()
+                elif (reply_type == Event.DESCRIPTION_LIGHT_NAME):
+                    self.X10[reply_number]._description = reply_name.strip()
                 return (reply_number+1)
         return False
