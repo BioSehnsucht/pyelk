@@ -72,7 +72,6 @@ class LineHandler(serial.threaded.LineReader):
         # Validate event and add to incoming buffer
         self._pyelk.elk_event_enqueue(data)
         _LOGGER.debug('handle_line: ' + data)
-        self._pyelk.update()
 
     def connection_lost(self, exc):
         _LOGGER.debug('Lost connection')
@@ -174,13 +173,19 @@ class Elk(object):
                 thermostat._number = t
             self.THERMOSTATS.append(thermostat)
         # Create 256 X10 devices
+        h = 1
+        d = 1
         for x in range(0,257):
             if x == 0:
                 device = None
             else:
                 device = X10(self)
-                device._house = X10._house_from_int(x-1)
-                device._number = X10._device_from_int(x-1)
+                device._house = h
+                device._number = d
+                d += 1
+                if d > 16:
+                    d = 1
+                    h += 1
             self.X10.append(device)
 
         if log is None:
@@ -422,7 +427,7 @@ class Elk(object):
                         _LOGGER.debug('elk_queue_process - Event.EVENT_PLC_CHANGE_UPDATE')
                         house = ord(event._data_str[0]) - ord('A')
                         device = int(event._data_str[1:3])
-                        offset = 1 + (house * 16) + device
+                        offset = (house * 16) + device
                         self.X10[offset].unpack_event_plc_change_update(event)
                         continue
                     elif (event._type == Event.EVENT_VERSION_REPLY):

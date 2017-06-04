@@ -26,22 +26,22 @@ class X10(Node):
     X10_STATUS_ON = 14 # Not used by Elk protocol
     X10_STATUS_OFF = 15 # Not used by Elk protocol
 
-    HOUSE_A = 0
-    HOUSE_B = 1
-    HOUSE_C = 2
-    HOUSE_D = 3
-    HOUSE_E = 4
-    HOUSE_F = 5
-    HOUSE_G = 6
-    HOUSE_H = 7
-    HOUSE_I = 8
-    HOUSE_J = 9
-    HOUSE_K = 10
-    HOUSE_L = 11
-    HOUSE_M = 12
-    HOUSE_N = 13
-    HOUSE_O = 14
-    HOUSE_P = 15
+    HOUSE_A = 1
+    HOUSE_B = 2
+    HOUSE_C = 3
+    HOUSE_D = 4
+    HOUSE_E = 5
+    HOUSE_F = 6
+    HOUSE_G = 7
+    HOUSE_H = 8
+    HOUSE_I = 9
+    HOUSE_J = 10
+    HOUSE_K = 11
+    HOUSE_L = 12
+    HOUSE_M = 13
+    HOUSE_N = 14
+    HOUSE_O = 15
+    HOUSE_P = 16
 
     HOUSE_STR = {
         HOUSE_A : 'A',
@@ -83,14 +83,6 @@ class X10(Node):
         # Initialize PLC specific things
         self._house = X10.HOUSE_A
         self._level = 0
-
-    def _house_from_int(value):
-        device = X10._device_from_int(value)
-        house = (value - device) // 16
-        return house
-
-    def _device_from_int(value):
-        return value % 16
 
     def description(self):
         """X10 description, as text string (auto-generated if not set)."""
@@ -195,7 +187,7 @@ class X10(Node):
         UU: Unit code '01' to '16', '00' for All commands
         LL: Level / scene / state Status, 0 = OFF, 1 = ON, 2-99 = light%
         """
-        state = int(event.data_dehex()[3:5])
+        state = int(event._data_str[3:5])
         self._state_from_int(state)
         self._updated_at = event._time
         self._callback()
@@ -207,8 +199,8 @@ class X10(Node):
         B: Bank, 0=A1 to D16, 1=E1 to H16, 2=I1 to L16, 3=M1 to P16
         D[64]: 64 byte array ASCII encoded (D - 48 = 0); 0 = OFF, 1 = ON, 2-99 = light%
         """
-        offset = ((self._house * 16) + self._number) % 64
-        state = int(event.data_dehex(True)[offset])
+        offset = (((self._house-1) * 16) + (self._number - 1)) % 64
+        state = event.data_dehex(True)[1+offset]
         self._state_from_int(state)
         self._updated_at = event._time
         self._callback()
