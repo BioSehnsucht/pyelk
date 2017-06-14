@@ -129,6 +129,12 @@ class Area(Node):
         # Let Node initialize common things
         super(Area, self).__init__(pyelk, number)
         # Initialize Area specific things
+        self._last_user_code = 0
+        self._last_user_at = 0
+        self._last_disarmed_by_user = 0
+        self._last_disarmed_at = 0
+        self._last_armed_by_user = 0
+        self._last_armed_at = 0
         self._arm_up = 0
         self._alarm = 0
         self._chime_mode = 0
@@ -251,6 +257,15 @@ class Area(Node):
         if ((self._status == status) and (self._arm_up == arm_up) and (self._alarm == alarm)):
             return
         self._status = status
+        # Hopefully it never takes more than a second to get from
+        # EVENT_USER_CODE_ENTERED to EVENT_ARMING_STATUS_REPORT
+        if (event._time - self._last_user_at) < 1.0:
+            if self._status == self.STATUS_DISARMED:
+                self._last_disarmed_at = event._time
+                self._last_disarmed_by_user = self._last_user_code
+            else:
+                self._last_armed_at = event._time
+                self._last_armed_by_user = self._last_user_code
         self._arm_up = arm_up
         self._alarm = alarm
         self._updated_at = event._time

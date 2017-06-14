@@ -152,3 +152,34 @@ class Keypad(Node):
             self._temp_enabled = True
         self._updated_at = event._time
         self._callback()
+
+    def unpack_event_user_code_entered(self, event):
+        """Unpack EVENT_USER_CODE_ENTERED.
+
+        Event data format: DDDDDDDDDDDDUUUNN
+        DDDDDDDDDDDD: 12 characters of ASCII Hex user code data,
+        4 & 6 digits codes are left padded with zeros. Set to all
+        zeros if code is valid
+        UUU: 3 characters of ASCII decimal User Code Number 001 to 103,
+        indicating which valid user code was entered
+        NN: Keypad number that generated the code
+        """
+        failed_code = event._data_str[0:12]
+        user = int(event._data_str[12:15])
+        keypad_number = int(event._data_str[15:17])
+        if user == 0:
+            # Invalid code was entered
+            # Currently don't do anything with this
+            return
+        else:
+            # Valid user code was entered
+            self._last_user_code = user
+            self._last_user_at = event._time
+            if self._area > 0:
+                self._pyelk.AREAS[self._area]._last_user_code = user
+                self._pyelk.AREAS[self._area]._last_user_at = event._time
+                # Force area update to propogate the last user code / at update
+                self._pyelk.AREAS[self._area]._updated_at = event._time
+                self._pyelk.AREAS[self._area]._callback()
+        self._updated_at = event._time
+        self._callback()

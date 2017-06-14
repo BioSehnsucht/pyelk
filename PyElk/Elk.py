@@ -351,6 +351,10 @@ class Elk(object):
                         # TODO: Implement
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ALARM_MEMORY')
                         continue
+                    elif (event._type == Event.EVENT_TROUBLE_STATUS_REPLY):
+                        # TODO: Implement
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_TROUBLE_STATUS_REPLY')
+                        continue
                     elif (event._type == Event.EVENT_ENTRY_EXIT_TIMER):
                         # Entry/Exit timer started or updated
                         area_number = int(event._data[0])
@@ -358,8 +362,10 @@ class Elk(object):
                         self.AREAS[area_number].unpack_event_entry_exit_timer(event)
                         continue
                     elif (event._type == Event.EVENT_USER_CODE_ENTERED):
-                        # TODO: Implement
+                        # User code entered
                         _LOGGER.debug('elk_queue_process - Event.EVENT_USER_CODE_ENTERED')
+                        keypad_number = int(event._data_str[15:17])
+                        self.KEYPADS[keypad_number].unpack_event_user_code_entered(event)
                         continue
                     elif (event._type == Event.EVENT_TASK_UPDATE):
                         # TODO: Implement
