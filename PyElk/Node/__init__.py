@@ -19,6 +19,8 @@ class Node(object):
         self._number = number
         # Device enabled ?
         self._enabled = True
+        # Device included (true) /excluded (false) ?
+        self._included = False
         # Status of the object
         self._status = None
         # Description of the object

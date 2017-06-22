@@ -170,6 +170,7 @@ class Keypad(Node):
         if user == 0:
             # Invalid code was entered
             # Currently don't do anything with this
+            _LOGGER.debug('unpack_event_user_code_entered - invalid code : ' + failed_code)
             return
         else:
             # Valid user code was entered

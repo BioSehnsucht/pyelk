@@ -17,19 +17,22 @@ _LOGGER = logging.getLogger()
 if __name__ == '__main__':
     from sys import argv
 
-    if len(argv) < 3:
-        print('usage: [usercode] [host/device]')
+    if len(argv) < 2:
+        print('usage: [host/device]')
         sys.exit(-1)
 
-    code = argv[1]
-    host = argv[2]
+    host = argv[1]
 
-    print('Connecting as usercode ' + code + ' to ' + host)
+    print('Connecting to ' + host)
 
     import PyElk
 
-    ELK = PyElk.Elk(address=host, usercode=code, log=_LOGGER)
-    
+    config = {'host' : host,
+              #'zone' : {'include' : '1-38', 'exclude' : '15-20'},
+              }
+
+    ELK = PyElk.Elk(config, log=_LOGGER)
+
     time.sleep(1)
     versions = ELK.get_version()
     from pprint import pprint
@@ -37,7 +40,9 @@ if __name__ == '__main__':
     #for o in range(1,209):
     #    sys.stdout.write('Output {}: '.format(repr(ELK.OUTPUTS[o].description())))
     #    sys.stdout.write('{}\n'.format(repr(ELK.OUTPUTS[o].status())))
-    
+    pprint(ELK.X10[1]._description)
+    #ELK.X10[1].turn_on()
+
     while True:
         ELK.update()
-
+        time.sleep(5)

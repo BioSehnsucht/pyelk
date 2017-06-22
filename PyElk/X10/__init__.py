@@ -92,6 +92,14 @@ class X10(Node):
             self._enabled = True
         return super(X10, self).description('Light ')
 
+    def housecode_from_int(self,i):
+        i = i - 1
+        if i < 0:
+            return 0,0
+        house = (i//16) + 1
+        device = (i%16) + 1
+        return house, device
+
     def set_level(self, level):
         """Set brightness level of device.
 
