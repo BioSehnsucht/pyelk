@@ -49,7 +49,7 @@ class Task(Node):
         """No command sent (tasks can only be activated),
         just ensures the status is reset to being off."""
         self._status = self.STATUS_OFF
-        self._updated_at = event._time
+        self._updated_at = time.time()
         self._callback()
 
     def dump(self):
@@ -67,7 +67,9 @@ class Task(Node):
         data = int(event._data_str[0:3])
         if (self._status == data):
             return
-        self._status = self.STATUS_ON
+        # We set to off because it's a momentary event, but update the time so
+        # things can be triggered from the last_activated
+        self._status = self.STATUS_OFF
         self._updated_at = event._time
         self._last_activated = event._time
         self._callback()

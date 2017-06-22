@@ -117,7 +117,7 @@ class Elk(object):
         usercode: Alarm user code (not currently used, may be removed).
         log: Logger object to use.
         """
-        self._state = STATE_DISCONNECTED
+        self._state = self.STATE_DISCONNECTED
         self._events = None
         self._reconnect_thread = None
         self._config = config
@@ -172,11 +172,13 @@ class Elk(object):
                 if 'include' in self._config[device_class]:
                     include_range = self._list_from_ranges(self._config[device_class]['include'])
                 if 'exclude' in self._config[device_class]:
-                    exclude_range = self._list_from_ranges(self._config[device_class]['include'])
+                    exclude_range = self._list_from_ranges(self._config[device_class]['exclude'])
             if include_range == None:
                 include_range = range(1,max_range[device_class] + 1)
             if exclude_range == None:
                 exclude_range = []
+            self.log.debug('PyElk config - ' + device_class + ' include range: %s', include_range)
+            self.log.debug('PyElk config - ' + device_class + ' exclude range: %s', exclude_range)
             for device_num in range(0,max_range[device_class] + 1):
                 if device_num == 0:
                     device = None
@@ -272,19 +274,19 @@ class Elk(object):
         event = Event()
         event._type = Event.EVENT_VERSION
         self.elk_event_send(event)
-        self._state = STATE_SCAN_ZONES
+        self._state = self.STATE_SCAN_ZONES
         self.scan_zones()
-        self._state = STATE_SCAN_OUTPUTS
+        self._state = self.STATE_SCAN_OUTPUTS
         self.scan_outputs()
-        self._state = STATE_SCAN_AREAS
+        self._state = self.STATE_SCAN_AREAS
         self.scan_areas()
-        self._state = STATE_SCAN_KEYPADS
+        self._state = self.STATE_SCAN_KEYPADS
         self.scan_keypads()
-        self._state = STATE_SCAN_TASKS
+        self._state = self.STATE_SCAN_TASKS
         self.scan_tasks()
-        self._state = STATE_SCAN_THERMOSTATS
+        self._state = self.STATE_SCAN_THERMOSTATS
         self.scan_thermostats()
-        self._state = STATE_SCAN_X10
+        self._state = self.STATE_SCAN_X10
         self.scan_x10()
         self._rescan_in_progress = False
         self._state = self.STATE_RUNNING
@@ -765,7 +767,15 @@ class Elk(object):
         for ranges in d:
             if '-' in ranges:
                 a, b = ranges.split('-')
-                x, y = int(a), int(b)
+                if (a.isdigit()) and (b.isdigit()):
+                    # Regular numeric ranges
+                    x, y = int(a), int(b)
+                else:
+                    # X10 device ranges, presumably
+                    x10 = X10(self)
+                    x, y = x10.housecode_to_int(a), x10.housecode_to_int(b)
+                    if (x is None) or (y is None):
+                        continue
                 result.extend(list(range(x, y + 1)))
             else:
                 a = int(ranges)

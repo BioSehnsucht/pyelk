@@ -3,6 +3,7 @@ from collections import deque
 import logging
 import time
 import traceback
+import re
 
 from ..Node import Node
 from ..Event import Event
@@ -99,6 +100,15 @@ class X10(Node):
         house = (i//16) + 1
         device = (i%16) + 1
         return house, device
+
+    def housecode_to_int(self,hc):
+        hc_split = re.split(r'(\d+)', hc.upper())
+        house = ord(hc_split[0]) - ord('A') + 1
+        code = int(hc_split[1])
+        if (house >= self.HOUSE_A) and (house <= self.HOUSE_P) and (code > 0) and (code <= 16):
+            return ((house - 1) * 16) + code
+        else:
+            return None
 
     def set_level(self, level):
         """Set brightness level of device.

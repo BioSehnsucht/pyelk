@@ -26,7 +26,7 @@ class Node(object):
         # Description of the object
         self._description = None
         # Time object was last updated at
-        self._updated_at = None
+        self._updated_at = 0
         # Callback methods for updates
         self._update_callbacks = []
         # Pyelk.Elk object that this object is for

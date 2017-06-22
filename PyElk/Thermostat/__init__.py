@@ -78,7 +78,10 @@ class Thermostat(Node):
 
     def fan(self):
         """Thermostat's current fan setting as text string."""
-        return self.FAN_STR[self._fan]
+        if self._fan is not None:
+            return self.FAN_STR[self._fan]
+        else:
+            return 'Unknown'
 
     def _set_thermostat(self, setting, value):
         """Set the thermostat using our properties.
