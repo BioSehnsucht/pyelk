@@ -69,7 +69,11 @@ class Task(Node):
             return
         # We set to off because it's a momentary event, but update the time so
         # things can be triggered from the last_activated
-        self._status = self.STATUS_OFF
+        self._status = self.STATUS_ON
         self._updated_at = event._time
         self._last_activated = event._time
+        self._callback()
+        time.sleep(1)
+        self._status = self.STATUS_OFF
+        self._updated_at = event._time
         self._callback()

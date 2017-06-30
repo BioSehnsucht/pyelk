@@ -22,6 +22,7 @@ from .Zone import Zone
 event_list_auto = [
     Event.EVENT_INSTALLER_ELKRP,
     Event.EVENT_INSTALLER_EXIT,
+    Event.EVENT_TROUBLE_STATUS_REPLY,
     Event.EVENT_ALARM_MEMORY,
     Event.EVENT_ENTRY_EXIT_TIMER,
     Event.EVENT_USER_CODE_ENTERED,
