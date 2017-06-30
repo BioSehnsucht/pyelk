@@ -37,6 +37,12 @@ class Output(Node):
         """Turn on output, optionally for a specified duration.
 
         duration: Duration in seconds for output to turn on, 0 is inf.
+
+        Using EVENT_OUTPUT_ON.
+
+        Event data format: DDDTTTTT
+        DDD: Output to turn on, '001' to '208' (ASCII decimal)
+        TTTTT: Duration in seconds to turn on, '00000' to '65535' (ASCII decimal)
         """
         event = Event()
         event._type = Event.EVENT_OUTPUT_ON
@@ -48,14 +54,26 @@ class Output(Node):
         self._pyelk.elk_event_send(event)
 
     def turn_off(self):
-        """Turn off output."""
+        """Turn off output.
+
+        Using EVENT_OUTPUT_OFF.
+
+        Event data format: DDD
+        DDD: Output to turn off, '001' to '208' (ASCII decimal)
+        """
         event = Event()
         event._type = Event.EVENT_OUTPUT_OFF
         event._data_str = format(self._number,'03')
         self._pyelk.elk_event_send(event)
 
     def toggle(self):
-        """Toggle output state."""
+        """Toggle output state.
+
+        Using EVENT_OUTPUT_TOGGLE.
+
+        Event data format: DDD
+        DDD: Output to toggle, '001' to '208' (ASCII decimal)
+        """
         event = Event()
         event._type = Event.EVENT_OUTPUT_TOGGLE
         event._data_str = format(self._number,'03')

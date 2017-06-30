@@ -20,6 +20,7 @@ from .Zone import Zone
 # Events automatically handled under normal circumstances
 # by elk_process_event
 event_list_auto = [
+    Event.EVENT_INSTALLER_ELKRP,
     Event.EVENT_INSTALLER_EXIT,
     Event.EVENT_ALARM_MEMORY,
     Event.EVENT_ENTRY_EXIT_TIMER,
@@ -374,16 +375,20 @@ class Elk(object):
                     # Process event
                     self._queue_incoming_elk_events.remove(event)
                     if (event._type == Event.EVENT_INSTALLER_EXIT):
-                        # Initiate a rescan if the Elk just left
+                        # Initiate a rescan if the Elk keypad just left
                         # installer mode and break out of the loop
                         _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_EXIT')
                         # This needs to be spun into another thread probably, or done async
                         self._rescan()
                         return
-                    elif (event._type == Event.EVENT_INSTALLER_CONNECT):
-                        # Consume Installer Connect events
+                    elif (event._type == Event.EVENT_INSTALLER_ELKRP):
+                        # Consume ElkRP Connect events
                         # but we don't do anything with them
-                        _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_CONNECT')
+                        rp_status = int(event._data_str[0:1])
+                        # Status 0: Elk RP disconnected, we should rescan
+                        # Status 1: Elk RP connected, M1XEP poll reply (no action)
+                        # Status 2: Elk RP connected, M1XEP poll reply during M1XEP powerup/reboot (no action)
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_ELKRP')
                         continue
                     elif (event._type == Event.EVENT_ETHERNET_TEST):
                         # Consume ethernet test events,
@@ -611,7 +616,7 @@ class Elk(object):
         self.elk_event_send(event)
         reply = self.elk_event_scan(Event.EVENT_ARMING_STATUS_REPORT)
         if (reply):
-            _LOGGER.debug('scan_areas : got Event.EVENT_OUTPUT_STATUS_REPORT')
+            _LOGGER.debug('scan_areas : got Event.EVENT_ARMING_STATUS_REPORT')
             for a in range (1,9):
                 self.AREAS[a].unpack_event_arming_status_report(reply)
         else:
@@ -631,7 +636,7 @@ class Elk(object):
         self.elk_event_send(event)
         reply = self.elk_event_scan(Event.EVENT_KEYPAD_AREA_REPLY)
         if (reply):
-            _LOGGER.debug('scan_keypads : got Event.EVENT_OUTPUT_STATUS_REPORT')
+            _LOGGER.debug('scan_keypads : got Event.EVENT_KEYPAD_AREA_REPLY')
             for k in range (1,17):
                 self.KEYPADS[k].unpack_event_keypad_area_reply(reply)
                 if self.KEYPADS[k]._included == True:

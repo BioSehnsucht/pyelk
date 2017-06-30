@@ -8,7 +8,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Event(object):
-    EVENT_INSTALLER_CONNECT = 'RP' # ELKRP Connected
+    EVENT_INSTALLER_ELKRP = 'RP' # ELKRP Connected
     EVENT_INSTALLER_EXIT = 'IE' # Installer Program Mode Exited
 
     EVENT_TROUBLE_STATUS = 'ss' # Request System Trouble Status
@@ -126,7 +126,7 @@ class Event(object):
     DESCRIPTION_FUNCTION_KEY_6_NAME = 17
 
     elk_events_map = {
-        'RP' : EVENT_INSTALLER_CONNECT,
+        'RP' : EVENT_INSTALLER_ELKRP,
         'IE' : EVENT_INSTALLER_EXIT,
         'ss' : EVENT_TROUBLE_STATUS,
         'SS' : EVENT_TROUBLE_STATUS_REPLY,

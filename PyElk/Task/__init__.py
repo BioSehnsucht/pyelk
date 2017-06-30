@@ -47,7 +47,7 @@ class Task(Node):
 
     def turn_off(self):
         """No command sent (tasks can only be activated),
-        just ensures the status is reset to being off."""
+        just ensures the status is set to being off."""
         self._status = self.STATUS_OFF
         self._updated_at = time.time()
         self._callback()

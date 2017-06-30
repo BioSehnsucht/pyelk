@@ -213,7 +213,11 @@ class Zone(Node):
         _LOGGER.debug('Zone Description: ' + str(repr(self.description())))
 
     def unpack_event_alarm_zone(self, event):
-        """Unpack EVENT_ALARM_ZONE_REPORT."""
+        """Unpack EVENT_ALARM_ZONE_REPORT.
+
+        Event data format: Z[208]
+        Z[208]: Array of 208 bytes showing alarm by zone
+        """
         data = event.data_dehex(True)[self._number-1]
         if (self._alarm == data):
             return
@@ -222,7 +226,11 @@ class Zone(Node):
         self._callback()
 
     def unpack_event_zone_definition(self, event):
-        """Unpack EVENT_ZONE_DEFINITION_REPLY."""
+        """Unpack EVENT_ZONE_DEFINITION_REPLY.
+
+        Event data format: D[208]
+        D[208]: Array of all 208 zones with the zone definition
+        """
         data = event.data_dehex(True)[self._number-1]
         if (self._definition == data):
             return
@@ -235,7 +243,11 @@ class Zone(Node):
         self._callback()
 
     def unpack_event_zone_partition(self, event):
-        """Unpack EVENT_ZONE_PARTITION_REPORT."""
+        """Unpack EVENT_ZONE_PARTITION_REPORT.
+
+        Event data format: D[208]
+        D[208]: Array of all 208 zones with the partition for each zone
+        """
         data = event.data_dehex(True)[self._number-1]
         self._area = data
         for a in range (1,9):
@@ -246,7 +258,12 @@ class Zone(Node):
         self._callback()
 
     def unpack_event_zone_voltage(self, event):
-        """Unpack EVENT_ZONE_VOLTAGE_REPLY."""
+        """Unpack EVENT_ZONE_VOLTAGE_REPLY.
+
+        Event data format: ZZZDDD
+        ZZZ: Zone number '001' to '208' (ASCII decimal)
+        DDD: Zone voltage data as 3 ACII decimal characters, actual value is DD.D (divide by 10)
+        """
         data = int(event._data_str[2:4]) / 10.0
         if (self._voltage == data):
             return
@@ -255,7 +272,11 @@ class Zone(Node):
         self._callback()
 
     def unpack_event_zone_status_report(self, event):
-        """Unpack EVENT_ZONE_STATUS_REPORT."""
+        """Unpack EVENT_ZONE_STATUS_REPORT.
+
+        Event data format: D[208]
+        D[208]: Array of all 208 zones with status as hexadecimal value
+        """
         data = int(event.data_dehex()[self._number-1])
         state = data & 0b11
         status = (data & 0b1100) >> 2
@@ -271,7 +292,12 @@ class Zone(Node):
         self._callback()
 
     def unpack_event_zone_update(self, event):
-        """Unpack EVENT_ZONE_UPDATE."""
+        """Unpack EVENT_ZONE_UPDATE.
+
+        Event data format: ZZZS
+        ZZZ: Zone number '001' to '208' (ASCII decimal)
+        S: Status as hexadecimal value
+        """
         data = int(event.data_dehex()[3])
         state = data & 0b11
         status = (data & 0b1100) >> 2

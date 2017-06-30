@@ -70,11 +70,17 @@ class Thermostat(Node):
 
     def mode(self):
         """Thermostat's current mode setting as text string."""
-        return self.MODE_STR[self._mode]
+        if self._mode is not None:
+            return self.MODE_STR[self._mode]
+        else:
+            return 'Unknown'
 
     def hold(self):
         """Thermostat's current hold setting as text string."""
-        return self.HOLD_STR[self._hold]
+        if self._hold is not None:
+            return self.HOLD_STR[self._hold]
+        else:
+            return 'Unknown'
 
     def fan(self):
         """Thermostat's current fan setting as text string."""

@@ -250,7 +250,13 @@ class Area(Node):
         return self.arm(self.ARM_DISARM, user_code)
 
     def unpack_event_arming_status_report(self, event):
-        """Unpack EVENT_ARMING_STATUS_REPORT."""
+        """Unpack EVENT_ARMING_STATUS_REPORT.
+
+        Event data format: SSSSSSSSUUUUUUUUAAAAAAAA
+        S[8]: Array of 8 area armed status
+        U[8]: Array of 8 area arm up state
+        A[8]: Array of 8 area alarm state
+        """
         status = event.data_dehex()[self._number-1]
         arm_up = event.data_dehex()[8+self._number-1]
         alarm = event.data_dehex(True)[16+self._number-1]
@@ -272,7 +278,15 @@ class Area(Node):
         self._callback()
 
     def unpack_event_entry_exit_timer(self, event):
-        """Unpack EVENT_ENTRY_EXIT_TIMER."""
+        """Unpack EVENT_ENTRY_EXIT_TIMER.
+
+        Event data format: ADtttTTTS
+        A: Area, '1' to '8' (ASCII decimal)
+        D: Data type, '0' for Exit, '1' for Entrance (ASCII decimal)
+        ttt: Timer 1 value in seconds, range '000' to '255' seconds (ASCII decimal)
+        TTT: Timer 2 value in seconds, range '000' to '255' seconds (ASCII decimal)
+        S: Armed state
+        """
         # Determine if this is Entrance or Exit timer update
         is_entrance = None
         if (event._data[0] == '1'):

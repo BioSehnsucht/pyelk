@@ -46,7 +46,10 @@ class Node(object):
 
     def status(self):
         """Current status, as text string."""
-        return self.STATUS_STR[self._status]
+        if self._status is not None:
+            return self.STATUS_STR[self._status]
+        else:
+            return 'Unknown'
 
     def description(self, prefix = 'Node '):
         """Object description, as text string (auto-generated if not set).
