@@ -174,7 +174,7 @@ class Zone(Node):
         ALARM_WATER_ALARM : 'Water Alarm'
         }
 
-    def __init__(self, pyelk = None, number = None):
+    def __init__(self, pyelk=None, number=None):
         """Initializes Zone object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -219,7 +219,7 @@ class Zone(Node):
         Z[208]: Array of 208 bytes showing alarm by zone
         """
         data = event.data_dehex(True)[self._number-1]
-        if (self._alarm == data):
+        if self._alarm == data:
             return
         self._alarm = data
         self._updated_at = event._time
@@ -232,10 +232,11 @@ class Zone(Node):
         D[208]: Array of all 208 zones with the zone definition
         """
         data = event.data_dehex(True)[self._number-1]
-        if (self._definition == data):
+        if self._definition == data:
             return
         self._definition = data
-        if ((self._state == self.STATE_UNCONFIGURED) and (self._definition == self.DEFINITION_DISABLED)):
+        if (self._state == self.STATE_UNCONFIGURED)\
+        and (self._definition == self.DEFINITION_DISABLED):
             self._enabled = False
         else:
             self._enabled = True
@@ -250,7 +251,7 @@ class Zone(Node):
         """
         data = event.data_dehex(True)[self._number-1]
         self._area = data
-        for a in range (1,9):
+        for a in range(1, 9):
             self._pyelk.AREAS[a]._member_zone[self._number] = False
         if self._area > 0:
             self._pyelk.AREAS[self._area]._member_zone[self._number] = True
@@ -265,7 +266,7 @@ class Zone(Node):
         DDD: Zone voltage data as 3 ACII decimal characters, actual value is DD.D (divide by 10)
         """
         data = int(event._data_str[2:4]) / 10.0
-        if (self._voltage == data):
+        if self._voltage == data:
             return
         self._voltage = data
         self._updated_at = event._time
@@ -280,11 +281,12 @@ class Zone(Node):
         data = int(event.data_dehex()[self._number-1])
         state = data & 0b11
         status = (data & 0b1100) >> 2
-        if ((self._state == state) and (self._status == status)):
+        if (self._state == state) and (self._status == status):
             return
         self._state = state
         self._status = status
-        if ((self._state == self.STATE_UNCONFIGURED) and (self._definition == self.DEFINITION_DISABLED)):
+        if (self._state == self.STATE_UNCONFIGURED)\
+        and (self._definition == self.DEFINITION_DISABLED):
             self._enabled = False
         else:
             self._enabled = True
@@ -301,7 +303,7 @@ class Zone(Node):
         data = int(event.data_dehex()[3])
         state = data & 0b11
         status = (data & 0b1100) >> 2
-        if ((self._state == state) and (self._status == status)):
+        if (self._state == state) and (self._status == status):
             return
         self._state = state
         self._status = status

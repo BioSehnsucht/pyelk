@@ -47,7 +47,7 @@ class Thermostat(Node):
     SET_SETPOINT_COOL = 4
     SET_SETPOINT_HEAT = 5
 
-    def __init__(self, pyelk = None, number = None):
+    def __init__(self, pyelk=None, number=None):
         """Initializes Thermostat object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -72,22 +72,19 @@ class Thermostat(Node):
         """Thermostat's current mode setting as text string."""
         if self._mode is not None:
             return self.MODE_STR[self._mode]
-        else:
-            return 'Unknown'
+        return 'Unknown'
 
     def hold(self):
         """Thermostat's current hold setting as text string."""
         if self._hold is not None:
             return self.HOLD_STR[self._hold]
-        else:
-            return 'Unknown'
+        return 'Unknown'
 
     def fan(self):
         """Thermostat's current fan setting as text string."""
         if self._fan is not None:
             return self.FAN_STR[self._fan]
-        else:
-            return 'Unknown'
+        return 'Unknown'
 
     def _set_thermostat(self, setting, value):
         """Set the thermostat using our properties.
@@ -102,32 +99,32 @@ class Thermostat(Node):
 
         event = Event()
         event._type = Event.EVENT_THERMOSTAT_SET
-        event._data_str = format(self._number,'02') \
-        + format(value,'02') + format(setting,'01')
+        event._data_str = format(self._number, '02') \
+        + format(value, '02') + format(setting, '01')
         self._pyelk.elk_event_send(event)
 
-    def set_mode(value):
+    def set_mode(self, value):
         self._set_thermostat(self.SET_MODE, value)
 
-    def set_hold(value):
+    def set_hold(self, value):
         self._set_thermostat(self.SET_HOLD, value)
 
-    def set_fan(value):
+    def set_fan(self, value):
         self._set_thermostat(self.SET_FAN, value)
 
-    def set_setpoint_cool(value):
+    def set_setpoint_cool(self, value):
         if value < 1:
             value = 1
         elif value > 99:
             value = 99
-        self._set_thermostat(self.SETPOINT_COOL, value)
+        self._set_thermostat(self.SET_SETPOINT_COOL, value)
 
-    def set_setpoint_heat(value):
+    def set_setpoint_heat(self, value):
         if value < 1:
             value = 1
         elif value > 99:
             value = 99
-        self._set_thermostat(self.SETPOINT_HEAT, value)
+        self._set_thermostat(self.SET_SETPOINT_HEAT, value)
 
     def request_temp(self):
         self._set_thermostat(self.SET_GET_TEMP, 0)

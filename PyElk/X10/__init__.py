@@ -73,7 +73,7 @@ class X10(Node):
         STATUS_DIMMED : 'Dimmed'
     }
 
-    def __init__(self, pyelk = None, number = None):
+    def __init__(self, pyelk=None, number=None):
         """Initializes X10 object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -87,28 +87,27 @@ class X10(Node):
 
     def description(self):
         """X10 description, as text string (auto-generated if not set)."""
-        if (self._description == '') or (self._description == None):
+        if (self._description == '') or (self._description is None):
             self._enabled = False
         else:
             self._enabled = True
         return super(X10, self).description('Light ')
 
-    def housecode_from_int(self,i):
+    def housecode_from_int(self, i):
         i = i - 1
         if i < 0:
-            return 0,0
+            return 0, 0
         house = (i//16) + 1
         device = (i%16) + 1
         return house, device
 
-    def housecode_to_int(self,hc):
+    def housecode_to_int(self, hc):
         hc_split = re.split(r'(\d+)', hc.upper())
         house = ord(hc_split[0]) - ord('A') + 1
         code = int(hc_split[1])
         if (house >= self.HOUSE_A) and (house <= self.HOUSE_P) and (code > 0) and (code <= 16):
             return ((house - 1) * 16) + code
-        else:
-            return None
+        return None
 
     def set_level(self, level):
         """Set brightness level of device.
@@ -122,11 +121,12 @@ class X10(Node):
         else:
             self.control(X10.X10_PRESET_DIM, level)
 
-    def control(self, function, extended = 0, duration = 0):
+    def control(self, function, extended=0, duration=0):
         """Control X10 device.
 
         function: See X10_* constants
-        extended: Brightness preset for X10_PRESET_DIM, or number of dim/bright for X10_DIM / X10_BRIGHT
+        extended: Brightness preset for X10_PRESET_DIM, or number of dim/bright for
+                  X10_DIM / X10_BRIGHT
         duration: Duration in seconds for output to turn on, 0 to 9999 decimal
 
         Event data format: HUUFFEETTTT
@@ -143,8 +143,8 @@ class X10(Node):
         elif duration > 9999:
             duration = 9999
         event._data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number,'02') + format(function,'02') \
-            + format(extended,'02') + format(duration,'04')
+            + format(self._number, '02') + format(function, '02') \
+            + format(extended, '02') + format(duration, '04')
         self._pyelk.elk_event_send(event)
 
     def turn_on(self):
@@ -157,7 +157,7 @@ class X10(Node):
         event = Event()
         event._type = Event.EVENT_PLC_TURN_ON
         event._data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number,'02')
+            + format(self._number, '02')
         self._pyelk.elk_event_send(event)
 
     def turn_off(self):
@@ -170,7 +170,7 @@ class X10(Node):
         event = Event()
         event._type = Event.EVENT_PLC_TURN_OFF
         event._data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number,'02')
+            + format(self._number, '02')
         self._pyelk.elk_event_send(event)
 
     def toggle(self):
@@ -183,7 +183,7 @@ class X10(Node):
         event = Event()
         event._type = Event.EVENT_PLC_TOGGLE
         event._data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number,'02')
+            + format(self._number, '02')
         self._pyelk.elk_event_send(event)
 
     def _state_from_int(self, state):

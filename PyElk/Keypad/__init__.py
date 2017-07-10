@@ -72,7 +72,7 @@ class Keypad(Node):
         PRESSED_DATAKEYMODE : 'Data Entered'
     }
 
-    def __init__(self, pyelk = None, number = None):
+    def __init__(self, pyelk=None, number=None):
         """Initializes Keypad object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -82,9 +82,12 @@ class Keypad(Node):
         super(Keypad, self).__init__(pyelk, number)
         # Initialize Keypad specific things
         self._pressed = 0
-        self._illum = [0,0,0,0,0,0]
+        self._illum = [0, 0, 0, 0, 0, 0]
         self._code_bypass = False
         self._temp = -460
+        self._temp_enabled = False
+        self._last_user_code = 0
+        self._last_user_at = 0
 
     def description(self):
         """Keypad description, as text string (auto-generated if not set)."""
@@ -99,7 +102,7 @@ class Keypad(Node):
         """
         area = event.data_dehex(True)[self._number-1]
         self._area = area
-        for a in range(1,9):
+        for a in range(1, 9):
             self._pyelk.AREAS[a]._member_keypad[self._number] = False
         if self._area > 0:
             self._pyelk.AREAS[self._area]._member_keypad[self._number] = True
@@ -119,18 +122,18 @@ class Keypad(Node):
         P[8]: Beep and chime mode per Area (See Area constants)
         """
         key = int(event._data_str[:2])
-        if (key == self._pressed):
+        if key == self._pressed:
             return
         self._pressed = key
-        for i in range(0,6):
+        for i in range(0, 6):
             self._illum[i] = event.data_dehex()[2+i]
-        if (event._data[8] == '1'):
+        if event._data[8] == '1':
             self._code_bypass = True
         else:
             self._code_bypass = False
         # Chime is actually by area, not keypad, even though
         # it is returned from the keypad status report.
-        for a in range(1,9):
+        for a in range(1, 9):
             self._pyelk.AREAS[a]._chime_mode = event.data_dehex(True)[8+a-1]
         self._updated_at = event._time
         self._callback()
@@ -146,7 +149,7 @@ class Keypad(Node):
         data = int(event._data_str[3:6])
         data = data - 40
         self._temp = data
-        if (self._temp == -40):
+        if self._temp == -40:
             self._temp_enabled = False
         else:
             self._temp_enabled = True
@@ -170,7 +173,6 @@ class Keypad(Node):
         if user == 0:
             # Invalid code was entered
             # Currently don't do anything with this
-            _LOGGER.debug('unpack_event_user_code_entered - invalid code : ' + failed_code)
             return
         else:
             # Valid user code was entered

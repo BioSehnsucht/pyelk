@@ -7,7 +7,9 @@ import traceback
 _LOGGER = logging.getLogger(__name__)
 
 class Node(object):
-    def __init__(self, pyelk = None, number = None):
+    STATUS_STR = {}
+
+    def __init__(self, pyelk=None, number=None):
         """Initializes Node object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -48,19 +50,18 @@ class Node(object):
         """Current status, as text string."""
         if self._status is not None:
             return self.STATUS_STR[self._status]
-        else:
-            return 'Unknown'
+        return 'Unknown'
 
-    def description(self, prefix = 'Node '):
+    def description(self, prefix='Node '):
         """Object description, as text string (auto-generated if not set).
 
         prefix: Prefix to compare against / auto-generate with.
         """
         if (self._description is None) or (self._description == '') \
-        or (self._description == prefix.strip() + format(self._number,'02')) \
-        or (self._description == prefix.strip() + format(self._number,'03')) \
-        or (self._description == prefix + format(self._number,'02')) \
-        or (self._description == prefix + format(self._number,'03')):
+        or (self._description == prefix.strip() + format(self._number, '02')) \
+        or (self._description == prefix.strip() + format(self._number, '03')) \
+        or (self._description == prefix + format(self._number, '02')) \
+        or (self._description == prefix + format(self._number, '03')):
             # If no description set, or it's the default (with zero
             # padding to 2 or 3 digits) return a nicer default.
             return prefix + str(self._number)
@@ -68,5 +69,5 @@ class Node(object):
 
     def _callback(self):
         """Perform update callback, if possible."""
-        for callback in  self._update_callbacks:
+        for callback in self._update_callbacks:
             callback()

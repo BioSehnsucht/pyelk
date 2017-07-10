@@ -18,7 +18,7 @@ class Task(Node):
         STATUS_ON : 'On'
     }
 
-    def __init__(self, pyelk = None, number = None):
+    def __init__(self, pyelk=None, number=None):
         """Initializes Task object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -42,7 +42,7 @@ class Task(Node):
         """
         event = Event()
         event._type = Event.EVENT_TASK_ACTIVATE
-        event._data_str = format(self._number,'03')
+        event._data_str = format(self._number, '03')
         self._pyelk.elk_event_send(event)
 
     def turn_off(self):
@@ -54,7 +54,7 @@ class Task(Node):
 
     def dump(self):
         """Dump debugging data, to be removed."""
-        _LOGGER.debug('Task Last Activated: {}\n'.format(repr(self._last_changed)))
+        _LOGGER.debug('Task Last Activated: {}\n'.format(repr(self._last_activated)))
         _LOGGER.debug('Task Description: {}\n'.format(repr(self.description())))
 
     def unpack_event_task_update(self, event: Event):
@@ -65,7 +65,7 @@ class Task(Node):
         0: Reserved for future use
         """
         data = int(event._data_str[0:3])
-        if (self._status == data):
+        if self._status == data:
             return
         # We set to off because it's a momentary event, but update the time so
         # things can be triggered from the last_activated

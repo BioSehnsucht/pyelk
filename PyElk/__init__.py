@@ -1,11 +1,11 @@
 """
-PyElk - Python Library for the Elk M1 Gold 
+PyElk - Python Library for the Elk M1 Gold
         and Elk M1 EZ8 alarm / integration panels
 
 This module provides an interface to the Elk ASCII protocol,
 either using direct serial or via the Elk M1XEP ethernet module.
 
-The Elk devices are products of Elk Products, Inc. The Elk devices 
+The Elk devices are products of Elk Products, Inc. The Elk devices
 are both alarm panels and integration devices capable of talking to
 various lighting control systems, thermostats, and so on.
 

@@ -195,7 +195,7 @@ class Event(object):
         'SD' : EVENT_DESCRIPTION_REPLY
     }
 
-    def __init__(self, pyelk = None):
+    def __init__(self, pyelk=None):
         """Initialize Event object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -227,7 +227,7 @@ class Event(object):
         _LOGGER.debug('Parsing: {}\n'.format(repr(data)))
         self._len = data[:2]
         self._type = data[2:4]
-        if (len(data) > 8):
+        if len(data) > 8:
             self._data_str = data[4:-4]
             self._data = list(self._data_str)
         else:
@@ -239,7 +239,7 @@ class Event(object):
     def to_string(self):
         """Convert event data to string to be sent on the wire."""
         event_str = ''
-        if ((self._data_str == '') and (len(self._data) > 0)):
+        if (self._data_str == '') and (len(self._data) > 0):
             self._data_str = ''.join(self._data)
         event_str += self._type
         event_str += self._data_str
@@ -248,12 +248,12 @@ class Event(object):
         self._checksum = self.checksum_generate(self._len + event_str)
         return self._len + event_str + self._checksum
 
-    def checksum_generate(self, data = False):
+    def checksum_generate(self, data=False):
         """Generate checksum for event.
 
         data: If set, is used instead of the data in the event object.
         """
-        if (data == False):
+        if data is False:
             data = self._len + self._type + self._data_str + self._reserved
         CC = 0
         for c in data:
@@ -266,12 +266,11 @@ class Event(object):
     def checksum_check(self):
         """Check if calculated checksum matches expected."""
         calculated = self.checksum_generate()
-        if (calculated == self._checksum):
+        if calculated == self._checksum:
             return True
-        else:
-            return False
+        return False
 
-    def data_dehex(self, fake = False):
+    def data_dehex(self, fake=False):
         """Convert ASCII hex data into integer data.
 
         fake: Set if not really ASCII hex, but instead is using all
@@ -280,13 +279,13 @@ class Event(object):
         17, ...).
         """
         data = []
-        for i in range(0,len(self._data)):
+        for i in range(0, len(self._data)):
             data.append(ord(self._data[i]) - ord('0'))
             if (not fake) and (data[i] > 9):
                 data[i] = data[i] - 7
         return data
 
-    def data_str_dehex(self, fake = False):
+    def data_str_dehex(self, fake=False):
         """Convert ASCII hex data into string data.
 
         fake: Set if not really ASCII hex, but instead is using all
@@ -295,7 +294,7 @@ class Event(object):
         17, ...).
         """
         data = []
-        for i in range(0,len(self._data)):
+        for i in range(0, len(self._data)):
             data.append(str(ord(self._data[i]) - ord('0')))
             if (not fake) and (ord(data[i]) > 9):
                 data[i] = str(ord(data[i]) - 7)

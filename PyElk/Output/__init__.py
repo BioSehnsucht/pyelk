@@ -18,7 +18,7 @@ class Output(Node):
         STATUS_ON : 'On'
     }
 
-    def __init__(self, pyelk = None, number = None):
+    def __init__(self, pyelk=None, number=None):
         """Initializes Output object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -33,7 +33,7 @@ class Output(Node):
         """Output description, as text string (auto-generated if not set)."""
         return super(Output, self).description('Output ')
 
-    def turn_on(self, duration = 0):
+    def turn_on(self, duration=0):
         """Turn on output, optionally for a specified duration.
 
         duration: Duration in seconds for output to turn on, 0 is inf.
@@ -50,7 +50,7 @@ class Output(Node):
             duration = 0
         elif duration > 65535:
             duration = 65535
-        event._data_str = format(self._number,'03') + format(duration,'05')
+        event._data_str = format(self._number, '03') + format(duration, '05')
         self._pyelk.elk_event_send(event)
 
     def turn_off(self):
@@ -63,7 +63,7 @@ class Output(Node):
         """
         event = Event()
         event._type = Event.EVENT_OUTPUT_OFF
-        event._data_str = format(self._number,'03')
+        event._data_str = format(self._number, '03')
         self._pyelk.elk_event_send(event)
 
     def toggle(self):
@@ -76,7 +76,7 @@ class Output(Node):
         """
         event = Event()
         event._type = Event.EVENT_OUTPUT_TOGGLE
-        event._data_str = format(self._number,'03')
+        event._data_str = format(self._number, '03')
         self._pyelk.elk_event_send(event)
 
 
@@ -93,7 +93,7 @@ class Output(Node):
         '0' is off, '1' is on
         """
         data = event.data_dehex()[self._number-1]
-        if (self._status == data):
+        if self._status == data:
             return
         self._status = data
         self._updated_at = event._time
@@ -107,7 +107,7 @@ class Output(Node):
         S: Output state, '0' is off, '1' is on
         """
         data = int(event.data_dehex()[3])
-        if (self._status == data):
+        if self._status == data:
             return
         self._status = data
         self._updated_at = event._time

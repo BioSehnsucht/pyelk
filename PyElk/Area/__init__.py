@@ -51,7 +51,7 @@ class Area(Node):
     ARM_UP_STR = {
         ARM_UP_NOT_READY : 'Not Ready To Arm',
         ARM_UP_READY : 'Ready To Arm',
-        ARM_UP_READY_VIOLATED_BYPASS : 'Ready To Arm, but a zone is violated and can be Force Armed',
+        ARM_UP_READY_VIOLATED_BYPASS : 'Ready To Arm, but a zone violated and can be Force Armed',
         ARM_UP_ARMED_EXIT_TIMER : 'Armed with Exit Timer working',
         ARM_UP_ARMED : 'Armed Fully',
         ARM_UP_FORCE_ARMED_VIOLATED : 'Force Armed with a force arm zone violated',
@@ -120,7 +120,7 @@ class Area(Node):
         CHIME_MODE_CHIME_BOTH_BEEP : 'Single Chime with Single Beep and Constantly Beeping'
     }
 
-    def __init__(self, pyelk = None, number = None):
+    def __init__(self, pyelk=None, number=None):
         """Initializes Area object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -144,9 +144,9 @@ class Area(Node):
         self._timer_exit_2 = 0
         self._member_zone = []
         self._member_keypad = []
-        for z in range(0,209):
+        for z in range(0, 209):
             self._member_zone.append(False)
-        for k in range(0,17):
+        for k in range(0, 17):
             self._member_keypad.append(False)
 
     def description(self):
@@ -158,8 +158,7 @@ class Area(Node):
         """True if Area is actively alarming."""
         if self._alarm != self.ALARM_NONE:
             return True
-        else:
-            return False
+        return False
 
     @property
     def timers_active(self):
@@ -168,19 +167,18 @@ class Area(Node):
             return True
         elif self._timer_entrance_2 > 0:
             return True
-        elif self._timer_exit_1  > 0:
+        elif self._timer_exit_1 > 0:
             return True
         elif self._timer_exit_2 > 0:
             return True
-        else:
-            return False
+        return False
 
     @property
     def member_zones(self):
         """Number of Zones which are a member of this Area."""
         count = 0
-        for z in range(0,209):
-            if self._member_zone[z] == True:
+        for z in range(0, 209):
+            if self._member_zone[z] is True:
                 count += 1
         return count
 
@@ -188,8 +186,8 @@ class Area(Node):
     def member_keypads(self):
         """Number of Keypads which are a member of this Area."""
         count = 0
-        for k in range(0,17):
-            if self._member_keypad[k] == True:
+        for k in range(0, 17):
+            if self._member_keypad[k] is True:
                 count += 1
         return count
 
@@ -203,7 +201,7 @@ class Area(Node):
 
     def chime_mode(self):
         """Area's Chime Mode as text string."""
-        return self._CHIME_MODE_STR(self._chime_mode)
+        return self.CHIME_MODE_STR[self._chime_mode]
 
     def arm(self, desired_arm_level, user_code):
         """Attempt to arm Area to specified arm mode.
@@ -213,30 +211,30 @@ class Area(Node):
 
         """
         event = Event()
-        if (desired_arm_level == self.ARM_DISARM):
+        if desired_arm_level == self.ARM_DISARM:
             event._type = Event.EVENT_DISARM
-        elif (desired_arm_level == self.ARM_AWAY):
+        elif desired_arm_level == self.ARM_AWAY:
             event._type = Event.EVENT_ARM_AWAY
-        elif (desired_arm_level == self.ARM_STAY):
+        elif desired_arm_level == self.ARM_STAY:
             event._type = Event.EVENT_ARM_STAY
-        elif (desired_arm_level == self.ARM_STAY_INSTANT):
+        elif desired_arm_level == self.ARM_STAY_INSTANT:
             event._type = Event.EVENT_ARM_STAY_INSTANT
-        elif (desired_arm_level == self.ARM_NIGHT):
+        elif desired_arm_level == self.ARM_NIGHT:
             event._type = Event.EVENT_ARM_NIGHT
-        elif (desired_arm_level == self.ARM_NIGHT_INSTANT):
+        elif desired_arm_level == self.ARM_NIGHT_INSTANT:
             event._type = Event.EVENT_ARM_NIGHT_INSTANT
-        elif (desired_arm_level == self.ARM_VACATION):
+        elif desired_arm_level == self.ARM_VACATION:
             event._type = Event.EVENT_ARM_VACATION
-        elif (desired_arm_level == self.ARM_NEXT_AWAY):
+        elif desired_arm_level == self.ARM_NEXT_AWAY:
             event._type = Event.EVENT_ARM_NEXT_AWAY
-        elif (desired_arm_level == self.ARM_NEXT_STAY):
+        elif desired_arm_level == self.ARM_NEXT_STAY:
             event._type = Event.EVENT_ARM_NEXT_STAY
-        elif (desired_arm_level == self.ARM_FORCE_AWAY):
+        elif desired_arm_level == self.ARM_FORCE_AWAY:
             event._type = Event.EVENT_ARM_FORCE_AWAY
-        elif (desired_arm_level == self.ARM_FORCE_STAY):
+        elif desired_arm_level == self.ARM_FORCE_STAY:
             event._type = Event.EVENT_ARM_FORCE_STAY
         # rjust used to make sure 4 digit codes are formatted as 00XXXX
-        event._data_str = str(self._number) + str(user_code).rjust(6,'0')
+        event._data_str = str(self._number) + str(user_code).rjust(6, '0')
         self._pyelk.elk_event_send(event)
         return
 
@@ -260,7 +258,7 @@ class Area(Node):
         status = event.data_dehex()[self._number-1]
         arm_up = event.data_dehex()[8+self._number-1]
         alarm = event.data_dehex(True)[16+self._number-1]
-        if ((self._status == status) and (self._arm_up == arm_up) and (self._alarm == alarm)):
+        if (self._status == status) and (self._arm_up == arm_up) and (self._alarm == alarm):
             return
         self._status = status
         # Hopefully it never takes more than a second to get from
@@ -289,7 +287,7 @@ class Area(Node):
         """
         # Determine if this is Entrance or Exit timer update
         is_entrance = None
-        if (event._data[0] == '1'):
+        if event._data[0] == '1':
             is_entrance = True
         else:
             is_entrance = False
