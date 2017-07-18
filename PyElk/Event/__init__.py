@@ -209,6 +209,42 @@ class Event(object):
         self._time = time.time()
         self._pyelk = pyelk
 
+    @property
+    def len(self):
+        return self._len
+
+    @property
+    def type(self):
+        return self._type
+
+    @type.setter
+    def type(self, value):
+        self._type = value
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value
+
+    @property
+    def data_str(self):
+        return self._data_str
+
+    @data_str.setter
+    def data_str(self, value):
+        self._data_str = value
+
+    @property
+    def time(self):
+        return self._time
+
+    @time.setter
+    def time(self, value):
+        self._time = value
+
     def age(self):
         """Age of the event (time since event was received)."""
         return time.time() - self._time
@@ -255,13 +291,13 @@ class Event(object):
         """
         if data is False:
             data = self._len + self._type + self._data_str + self._reserved
-        CC = 0
-        for c in data:
-            CC += ord(c)
-        CC = CC % 256
-        CC = CC ^ 255
-        CC += 1
-        return format(CC, '02x').upper()
+        computed_checksum = 0
+        for data_character in data:
+            computed_checksum += ord(data_character)
+        computed_checksum = computed_checksum % 256
+        computed_checksum = computed_checksum ^ 255
+        computed_checksum += 1
+        return format(computed_checksum, '02x').upper()
 
     def checksum_check(self):
         """Check if calculated checksum matches expected."""

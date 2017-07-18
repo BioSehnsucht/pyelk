@@ -80,18 +80,30 @@ class X10(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super(X10, self).__init__(pyelk, number)
+        super().__init__(pyelk, number)
         # Initialize PLC specific things
         self._house = X10.HOUSE_A
         self._level = 0
 
-    def description(self):
+    def description_pretty(self, prefix='Light '):
         """X10 description, as text string (auto-generated if not set)."""
+        #FIXME : Why did I put this logic here?
         if (self._description == '') or (self._description is None):
             self._enabled = False
         else:
             self._enabled = True
-        return super(X10, self).description('Light ')
+        return super().description_pretty(prefix)
+
+    def house_pretty(self):
+        return self.HOUSE_STR[self._house]
+
+    @property
+    def house(self):
+        return self._house
+
+    @property
+    def level(self):
+        return self._level
 
     def housecode_from_int(self, i):
         i = i - 1
@@ -137,12 +149,12 @@ class X10(Node):
         TTTT: On time in seconds, 0000 to 9999
         """
         event = Event()
-        event._type = Event.EVENT_PLC_CONTROL
+        event.type = Event.EVENT_PLC_CONTROL
         if duration < 0:
             duration = 0
         elif duration > 9999:
             duration = 9999
-        event._data_str = X10.HOUSE_STR[self._house] \
+        event.data_str = X10.HOUSE_STR[self._house] \
             + format(self._number, '02') + format(function, '02') \
             + format(extended, '02') + format(duration, '04')
         self._pyelk.elk_event_send(event)
@@ -155,8 +167,8 @@ class X10(Node):
         UU: Unit code '01' to '16'
         """
         event = Event()
-        event._type = Event.EVENT_PLC_TURN_ON
-        event._data_str = X10.HOUSE_STR[self._house] \
+        event.type = Event.EVENT_PLC_TURN_ON
+        event.data_str = X10.HOUSE_STR[self._house] \
             + format(self._number, '02')
         self._pyelk.elk_event_send(event)
 
@@ -168,8 +180,8 @@ class X10(Node):
         UU: Unit code '01' to '16'
         """
         event = Event()
-        event._type = Event.EVENT_PLC_TURN_OFF
-        event._data_str = X10.HOUSE_STR[self._house] \
+        event.type = Event.EVENT_PLC_TURN_OFF
+        event.data_str = X10.HOUSE_STR[self._house] \
             + format(self._number, '02')
         self._pyelk.elk_event_send(event)
 
@@ -181,8 +193,8 @@ class X10(Node):
         UU: Unit code '01' to '16'
         """
         event = Event()
-        event._type = Event.EVENT_PLC_TOGGLE
-        event._data_str = X10.HOUSE_STR[self._house] \
+        event.type = Event.EVENT_PLC_TOGGLE
+        event.data_str = X10.HOUSE_STR[self._house] \
             + format(self._number, '02')
         self._pyelk.elk_event_send(event)
 
@@ -205,9 +217,9 @@ class X10(Node):
         UU: Unit code '01' to '16', '00' for All commands
         LL: Level / scene / state Status, 0 = OFF, 1 = ON, 2-99 = light%
         """
-        state = int(event._data_str[3:5])
+        state = int(event.data_str[3:5])
         self._state_from_int(state)
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_plc_status_reply(self, event):
@@ -220,5 +232,5 @@ class X10(Node):
         offset = (((self._house-1) * 16) + (self._number - 1)) % 64
         state = event.data_dehex(True)[1+offset]
         self._state_from_int(state)
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()

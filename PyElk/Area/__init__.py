@@ -127,7 +127,7 @@ class Area(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super(Area, self).__init__(pyelk, number)
+        super().__init__(pyelk, number)
         # Initialize Area specific things
         self._last_user_code = 0
         self._last_user_at = 0
@@ -144,14 +144,21 @@ class Area(Node):
         self._timer_exit_2 = 0
         self._member_zone = []
         self._member_keypad = []
-        for z in range(0, 209):
+        for node_index in range(0, 209):
             self._member_zone.append(False)
-        for k in range(0, 17):
+        for node_index in range(0, 17):
             self._member_keypad.append(False)
 
-    def description(self):
+    def description_pretty(self, prefix='Area '):
         """Area description, as text string (auto-generated if not set)."""
-        return super(Area, self).description('Area ')
+        return super().description_pretty(prefix)
+
+    def dump(self):
+        """Dump debugging data, to be removed."""
+        _LOGGER.debug('Area Status: ' + str(repr(self.status_pretty())))
+        _LOGGER.debug('Area Arm Up: ' + str(repr(self.arm_up_pretty())))
+        _LOGGER.debug('Area Alarm: ' + str(repr(self.alarm_pretty())))
+        _LOGGER.debug('Area Description: ' + str(repr(self.description_pretty())))
 
     @property
     def alarm_active(self):
@@ -174,16 +181,84 @@ class Area(Node):
         return False
 
     @property
-    def member_zones(self):
+    def member_keypad(self):
+        return self._member_keypad
+
+    @member_keypad.setter
+    def member_keypad(self, value):
+        self._member_keypad = value
+    @property
+    def member_zone(self):
+        return self._member_zone
+
+    @member_zone.setter
+    def member_zone(self, value):
+        self._member_zone = value
+
+    @property
+    def last_user_code(self):
+        return self._last_user_code
+
+    @last_user_code.setter
+    def last_user_code(self, value):
+        self._last_user_code = value
+
+    @property
+    def last_user_at(self):
+        return self._last_user_at
+
+    @last_user_at.setter
+    def last_user_at(self, value):
+        self._last_user_at = value
+
+    @property
+    def last_disarmed_at(self):
+        return self._last_disarmed_at
+
+    @property
+    def last_disarmed_by_user(self):
+        return self._last_disarmed_by_user
+
+    @property
+    def last_armed_at(self):
+        return self._last_armed_at
+
+    @property
+    def last_armed_by_user(self):
+        return self._last_armed_by_user
+
+    @property
+    def updated_at(self):
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, value):
+        self._updated_at = value
+        self._callback()
+
+    @property
+    def chime_mode(self):
+        return self._chime_mode
+
+    @chime_mode.setter
+    def chime_mode(self, value):
+        self._chime_mode = value
+
+    @property
+    def arm_up(self):
+        return self._arm_up
+
+    @property
+    def member_zones_count(self):
         """Number of Zones which are a member of this Area."""
         count = 0
-        for z in range(0, 209):
-            if self._member_zone[z] is True:
+        for node_index in range(0, 209):
+            if self._member_zone[node_index] is True:
                 count += 1
         return count
 
     @property
-    def member_keypads(self):
+    def member_keypads_count(self):
         """Number of Keypads which are a member of this Area."""
         count = 0
         for k in range(0, 17):
@@ -191,15 +266,15 @@ class Area(Node):
                 count += 1
         return count
 
-    def arm_up(self):
+    def arm_up_pretty(self):
         """Area's Arm Up (arming readiness) state as text string."""
         return self.ARM_UP_STR[self._arm_up]
 
-    def alarm(self):
+    def alarm_pretty(self):
         """Area's Alarm state as text string."""
         return self.ALARM_STR[self._alarm]
 
-    def chime_mode(self):
+    def chime_mode_pretty(self):
         """Area's Chime Mode as text string."""
         return self.CHIME_MODE_STR[self._chime_mode]
 
@@ -212,29 +287,29 @@ class Area(Node):
         """
         event = Event()
         if desired_arm_level == self.ARM_DISARM:
-            event._type = Event.EVENT_DISARM
+            event.type = Event.EVENT_DISARM
         elif desired_arm_level == self.ARM_AWAY:
-            event._type = Event.EVENT_ARM_AWAY
+            event.type = Event.EVENT_ARM_AWAY
         elif desired_arm_level == self.ARM_STAY:
-            event._type = Event.EVENT_ARM_STAY
+            event.type = Event.EVENT_ARM_STAY
         elif desired_arm_level == self.ARM_STAY_INSTANT:
-            event._type = Event.EVENT_ARM_STAY_INSTANT
+            event.type = Event.EVENT_ARM_STAY_INSTANT
         elif desired_arm_level == self.ARM_NIGHT:
-            event._type = Event.EVENT_ARM_NIGHT
+            event.type = Event.EVENT_ARM_NIGHT
         elif desired_arm_level == self.ARM_NIGHT_INSTANT:
-            event._type = Event.EVENT_ARM_NIGHT_INSTANT
+            event.type = Event.EVENT_ARM_NIGHT_INSTANT
         elif desired_arm_level == self.ARM_VACATION:
-            event._type = Event.EVENT_ARM_VACATION
+            event.type = Event.EVENT_ARM_VACATION
         elif desired_arm_level == self.ARM_NEXT_AWAY:
-            event._type = Event.EVENT_ARM_NEXT_AWAY
+            event.type = Event.EVENT_ARM_NEXT_AWAY
         elif desired_arm_level == self.ARM_NEXT_STAY:
-            event._type = Event.EVENT_ARM_NEXT_STAY
+            event.type = Event.EVENT_ARM_NEXT_STAY
         elif desired_arm_level == self.ARM_FORCE_AWAY:
-            event._type = Event.EVENT_ARM_FORCE_AWAY
+            event.type = Event.EVENT_ARM_FORCE_AWAY
         elif desired_arm_level == self.ARM_FORCE_STAY:
-            event._type = Event.EVENT_ARM_FORCE_STAY
+            event.type = Event.EVENT_ARM_FORCE_STAY
         # rjust used to make sure 4 digit codes are formatted as 00XXXX
-        event._data_str = str(self._number) + str(user_code).rjust(6, '0')
+        event.data_str = str(self._number) + str(user_code).rjust(6, '0')
         self._pyelk.elk_event_send(event)
         return
 
@@ -263,16 +338,16 @@ class Area(Node):
         self._status = status
         # Hopefully it never takes more than a second to get from
         # EVENT_USER_CODE_ENTERED to EVENT_ARMING_STATUS_REPORT
-        if (event._time - self._last_user_at) < 1.0:
+        if (event.time - self._last_user_at) < 1.0:
             if self._status == self.STATUS_DISARMED:
-                self._last_disarmed_at = event._time
+                self._last_disarmed_at = event.time
                 self._last_disarmed_by_user = self._last_user_code
             else:
-                self._last_armed_at = event._time
+                self._last_armed_at = event.time
                 self._last_armed_by_user = self._last_user_code
         self._arm_up = arm_up
         self._alarm = alarm
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_entry_exit_timer(self, event):
@@ -287,12 +362,12 @@ class Area(Node):
         """
         # Determine if this is Entrance or Exit timer update
         is_entrance = None
-        if event._data[0] == '1':
+        if event.data[0] == '1':
             is_entrance = True
         else:
             is_entrance = False
-        timer_1 = int(event._data_str[1:3])
-        timer_2 = int(event._data_str[4:6])
+        timer_1 = int(event.data_str[1:3])
+        timer_2 = int(event.data_str[4:6])
         status = event.data_dehex(True)[7]
         self._status = status
         if is_entrance:
@@ -301,5 +376,5 @@ class Area(Node):
         else:
             self._timer_exit_1 = timer_1
             self._timer_exit_2 = timer_2
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()

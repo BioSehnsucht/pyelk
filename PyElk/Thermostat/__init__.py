@@ -54,7 +54,7 @@ class Thermostat(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super(Thermostat, self).__init__(pyelk, number)
+        super().__init__(pyelk, number)
         # Initialize Thermostat specific things
         self._mode = None
         self._hold = None
@@ -64,23 +64,47 @@ class Thermostat(Node):
         self._setpoint_cool = None
         self._humidity = None
 
-    def description(self):
+    def description_pretty(self, prefix='Thermostat '):
         """Thermostat description, as text string (auto-generated if not set)."""
-        return super(Thermostat, self).description('Thermostat ')
+        return super().description_pretty(prefix)
 
+    @property
     def mode(self):
+        return self._mode
+
+    @property
+    def fan(self):
+        return self._fan
+
+    @property
+    def temp(self):
+        return self._temp
+
+    @property
+    def humidity(self):
+        return self._humidity
+
+    @property
+    def setpoint_cool(self):
+        return self._setpoint_cool
+
+    @property
+    def setpoint_heat(self):
+        return self._setpoint_heat
+
+    def mode_pretty(self):
         """Thermostat's current mode setting as text string."""
         if self._mode is not None:
             return self.MODE_STR[self._mode]
         return 'Unknown'
 
-    def hold(self):
+    def hold_pretty(self):
         """Thermostat's current hold setting as text string."""
         if self._hold is not None:
             return self.HOLD_STR[self._hold]
         return 'Unknown'
 
-    def fan(self):
+    def fan_pretty(self):
         """Thermostat's current fan setting as text string."""
         if self._fan is not None:
             return self.FAN_STR[self._fan]
@@ -98,8 +122,8 @@ class Thermostat(Node):
         """
 
         event = Event()
-        event._type = Event.EVENT_THERMOSTAT_SET
-        event._data_str = format(self._number, '02') \
+        event.type = Event.EVENT_THERMOSTAT_SET
+        event.data_str = format(self._number, '02') \
         + format(value, '02') + format(setting, '01')
         self._pyelk.elk_event_send(event)
 
@@ -137,10 +161,10 @@ class Thermostat(Node):
         NN: Device number in group (2 decimal ASCII digits)
         DDD: Temperature in ASCII decimal (no offset)
         """
-        data = int(event._data_str[3:6])
+        data = int(event.data_str[3:6])
         data = data - 40
         self._temp = data
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_thermostat_data_reply(self, event):
@@ -156,14 +180,14 @@ class Thermostat(Node):
         SS: Cool Set Point in Cool/Auto modes (ASCII decimal)
         UU: Current Humidity % (ASCII decimal, 01 to 99)
         """
-        self._mode = int(event._data_str[2:3])
-        self._hold = int(event._data_str[3:4])
-        self._fan = int(event._data_str[4:5])
-        self._temp = int(event._data_str[5:7])
-        self._setpoint_heat = int(event._data_str[7:9])
-        self._setpoint_cool = int(event._data_str[9:11])
-        self._humidity = int(event._data_str[11:13])
+        self._mode = int(event.data_str[2:3])
+        self._hold = int(event.data_str[3:4])
+        self._fan = int(event.data_str[4:5])
+        self._temp = int(event.data_str[5:7])
+        self._setpoint_heat = int(event.data_str[7:9])
+        self._setpoint_cool = int(event.data_str[9:11])
+        self._humidity = int(event.data_str[11:13])
         if self._temp == 0:
             self._enabled = False
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()

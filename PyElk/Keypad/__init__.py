@@ -79,7 +79,7 @@ class Keypad(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super(Keypad, self).__init__(pyelk, number)
+        super().__init__(pyelk, number)
         # Initialize Keypad specific things
         self._pressed = 0
         self._illum = [0, 0, 0, 0, 0, 0]
@@ -89,9 +89,25 @@ class Keypad(Node):
         self._last_user_code = 0
         self._last_user_at = 0
 
-    def description(self):
+    @property
+    def temp(self):
+        return self._temp
+
+    @property
+    def temp_enabled(self):
+        return self._temp_enabled
+
+    @property
+    def last_user_code(self):
+        return self._last_user_code
+
+    @property
+    def last_user_at(self):
+        return self._last_user_at
+
+    def description_pretty(self, prefix='Keypad '):
         """Keypad description, as text string (auto-generated if not set)."""
-        return super(Keypad, self).description('Keypad ')
+        return super().description_pretty(prefix)
 
     def unpack_event_keypad_area_reply(self, event):
         """Unpack EVENT_KEYPAD_AREA_REPLY.
@@ -102,12 +118,12 @@ class Keypad(Node):
         """
         area = event.data_dehex(True)[self._number-1]
         self._area = area
-        for a in range(1, 9):
-            self._pyelk.AREAS[a]._member_keypad[self._number] = False
+        for node_index in range(1, 9):
+            self._pyelk.AREAS[node_index].member_keypad[self._number] = False
         if self._area > 0:
-            self._pyelk.AREAS[self._area]._member_keypad[self._number] = True
+            self._pyelk.AREAS[self._area].member_keypad[self._number] = True
 
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_keypad_status_report(self, event):
@@ -121,21 +137,21 @@ class Keypad(Node):
         C: If '1', code required to bypass
         P[8]: Beep and chime mode per Area (See Area constants)
         """
-        key = int(event._data_str[:2])
+        key = int(event.data_str[:2])
         if key == self._pressed:
             return
         self._pressed = key
         for i in range(0, 6):
             self._illum[i] = event.data_dehex()[2+i]
-        if event._data[8] == '1':
+        if event.data[8] == '1':
             self._code_bypass = True
         else:
             self._code_bypass = False
         # Chime is actually by area, not keypad, even though
         # it is returned from the keypad status report.
-        for a in range(1, 9):
-            self._pyelk.AREAS[a]._chime_mode = event.data_dehex(True)[8+a-1]
-        self._updated_at = event._time
+        for node_index in range(1, 9):
+            self._pyelk.AREAS[node_index].chime_mode = event.data_dehex(True)[8+node_index-1]
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_temp_request_reply(self, event):
@@ -146,14 +162,14 @@ class Keypad(Node):
         NN: Device number in group (2 decimal ASCII digits)
         DDD: Temperature in ASCII decimal (offset by -40 for true value)
         """
-        data = int(event._data_str[3:6])
+        data = int(event.data_str[3:6])
         data = data - 40
         self._temp = data
         if self._temp == -40:
             self._temp_enabled = False
         else:
             self._temp_enabled = True
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_user_code_entered(self, event):
@@ -167,9 +183,9 @@ class Keypad(Node):
         indicating which valid user code was entered
         NN: Keypad number that generated the code
         """
-        failed_code = event._data_str[0:12]
-        user = int(event._data_str[12:15])
-        keypad_number = int(event._data_str[15:17])
+        #failed_code = event.data_str[0:12]
+        user = int(event.data_str[12:15])
+        #keypad_number = int(event.data_str[15:17])
         if user == 0:
             # Invalid code was entered
             # Currently don't do anything with this
@@ -177,12 +193,11 @@ class Keypad(Node):
         else:
             # Valid user code was entered
             self._last_user_code = user
-            self._last_user_at = event._time
+            self._last_user_at = event.time
             if self._area > 0:
-                self._pyelk.AREAS[self._area]._last_user_code = user
-                self._pyelk.AREAS[self._area]._last_user_at = event._time
+                self._pyelk.AREAS[self._area].last_user_code = user
+                self._pyelk.AREAS[self._area].last_user_at = event.time
                 # Force area update to propogate the last user code / at update
-                self._pyelk.AREAS[self._area]._updated_at = event._time
-                self._pyelk.AREAS[self._area]._callback()
-        self._updated_at = event._time
+                self._pyelk.AREAS[self._area].updated_at = event.time
+        self._updated_at = event.time
         self._callback()

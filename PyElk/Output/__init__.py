@@ -25,13 +25,13 @@ class Output(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super(Output, self).__init__(pyelk, number)
+        super().__init__(pyelk, number)
         # Initialize Output specific things
         # (none currently)
 
-    def description(self):
+    def description_pretty(self, prefix='Output '):
         """Output description, as text string (auto-generated if not set)."""
-        return super(Output, self).description('Output ')
+        return super().description_pretty(prefix)
 
     def turn_on(self, duration=0):
         """Turn on output, optionally for a specified duration.
@@ -45,12 +45,12 @@ class Output(Node):
         TTTTT: Duration in seconds to turn on, '00000' to '65535' (ASCII decimal)
         """
         event = Event()
-        event._type = Event.EVENT_OUTPUT_ON
+        event.type = Event.EVENT_OUTPUT_ON
         if duration < 0:
             duration = 0
         elif duration > 65535:
             duration = 65535
-        event._data_str = format(self._number, '03') + format(duration, '05')
+        event.data_str = format(self._number, '03') + format(duration, '05')
         self._pyelk.elk_event_send(event)
 
     def turn_off(self):
@@ -62,8 +62,8 @@ class Output(Node):
         DDD: Output to turn off, '001' to '208' (ASCII decimal)
         """
         event = Event()
-        event._type = Event.EVENT_OUTPUT_OFF
-        event._data_str = format(self._number, '03')
+        event.type = Event.EVENT_OUTPUT_OFF
+        event.data_str = format(self._number, '03')
         self._pyelk.elk_event_send(event)
 
     def toggle(self):
@@ -75,15 +75,15 @@ class Output(Node):
         DDD: Output to toggle, '001' to '208' (ASCII decimal)
         """
         event = Event()
-        event._type = Event.EVENT_OUTPUT_TOGGLE
-        event._data_str = format(self._number, '03')
+        event.type = Event.EVENT_OUTPUT_TOGGLE
+        event.data_str = format(self._number, '03')
         self._pyelk.elk_event_send(event)
 
 
     def dump(self):
         """Dump debugging data, to be removed."""
-        _LOGGER.debug('Output Status: {}\n'.format(repr(self.status())))
-        _LOGGER.debug('Output Description: {}\n'.format(repr(self.description())))
+        _LOGGER.debug('Output Status: {}\n'.format(repr(self.status_pretty())))
+        _LOGGER.debug('Output Description: {}\n'.format(repr(self.description_pretty())))
 
     def unpack_event_output_status_report(self, event):
         """Unpack EVENT_OUTPUT_STATUS_REPORT.
@@ -96,7 +96,7 @@ class Output(Node):
         if self._status == data:
             return
         self._status = data
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_output_update(self, event):
@@ -110,5 +110,5 @@ class Output(Node):
         if self._status == data:
             return
         self._status = data
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()

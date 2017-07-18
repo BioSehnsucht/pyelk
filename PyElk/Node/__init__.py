@@ -34,6 +34,54 @@ class Node(object):
         # Pyelk.Elk object that this object is for
         self._pyelk = pyelk
 
+    @property
+    def area(self):
+        return self._area
+
+    @area.setter
+    def area(self, value):
+        self._area = value
+
+    @property
+    def number(self):
+        return self._number
+
+    @number.setter
+    def number(self, value):
+        self._number = value
+
+    @property
+    def enabled(self):
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self._enabled = value
+
+    @property
+    def included(self):
+        return self._included
+
+    @included.setter
+    def included(self, value):
+        self._included = value
+
+    @property
+    def description(self):
+        return self._description
+
+    @description.setter
+    def description(self, value):
+        self._description = value
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        self._status = value
+
     def callback_add(self, method):
         """Add a method to list of callbacks to be called on update."""
         self._update_callbacks.append(method)
@@ -46,13 +94,13 @@ class Node(object):
         """Age of the current object state (time since last update)."""
         return time.time() - self._updated_at
 
-    def status(self):
+    def status_pretty(self):
         """Current status, as text string."""
         if self._status is not None:
             return self.STATUS_STR[self._status]
         return 'Unknown'
 
-    def description(self, prefix='Node '):
+    def description_pretty(self, prefix='Node '):
         """Object description, as text string (auto-generated if not set).
 
         prefix: Prefix to compare against / auto-generate with.

@@ -181,7 +181,7 @@ class Zone(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super(Zone, self).__init__(pyelk, number)
+        super().__init__(pyelk, number)
         # Initialize Zone specific things
         self._state = 0
         self._definition = 0
@@ -189,28 +189,56 @@ class Zone(Node):
         self._voltage = 0.0
         self._temp = -460
 
-    def description(self):
-        """Output description, as text string (auto-generated if not set)."""
-        return super(Zone, self).description('Zone ')
+    @property
+    def temp(self):
+        return self._temp
 
+    @property
+    def definition(self):
+        return self._definition
+
+    @definition.setter
+    def definition(self, value):
+        self._definition = value
+
+    @property
     def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        self._state = value
+
+    @property
+    def alarm(self):
+        return self._alarm
+
+    @alarm.setter
+    def alarm(self, value):
+        self._alarm = value
+
+    def description_pretty(self, prefix='Zone '):
+        """Output description, as text string (auto-generated if not set)."""
+        return super().description_pretty(prefix)
+
+    def state_pretty(self):
         """Zone's current State as text string."""
         return self.STATE_STR[self._state]
 
-    def alarm(self):
+    def alarm_pretty(self):
         """Zone's Alarm type configuration as text string."""
         return self.ALARM_STR[self._alarm]
 
-    def definition(self):
+    def definition_pretty(self):
         """Zone's Definition type configuration as text string."""
         return self.DEFINITION_STR[self._definition]
 
     def dump(self):
         """Dump debugging data, to be removed."""
-        _LOGGER.debug('Zone State: ' + str(repr(self.state())))
-        _LOGGER.debug('Zone Status: ' + str(repr(self.status())))
-        _LOGGER.debug('Zone Definition: ' + str(repr(self.definition())))
-        _LOGGER.debug('Zone Description: ' + str(repr(self.description())))
+        _LOGGER.debug('Zone State: ' + str(repr(self.state_pretty())))
+        _LOGGER.debug('Zone Status: ' + str(repr(self.status_pretty())))
+        _LOGGER.debug('Zone Definition: ' + str(repr(self.definition_pretty())))
+        _LOGGER.debug('Zone Description: ' + str(repr(self.description_pretty())))
 
     def unpack_event_alarm_zone(self, event):
         """Unpack EVENT_ALARM_ZONE_REPORT.
@@ -222,7 +250,7 @@ class Zone(Node):
         if self._alarm == data:
             return
         self._alarm = data
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_zone_definition(self, event):
@@ -240,7 +268,7 @@ class Zone(Node):
             self._enabled = False
         else:
             self._enabled = True
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_zone_partition(self, event):
@@ -251,11 +279,11 @@ class Zone(Node):
         """
         data = event.data_dehex(True)[self._number-1]
         self._area = data
-        for a in range(1, 9):
-            self._pyelk.AREAS[a]._member_zone[self._number] = False
+        for node_index in range(1, 9):
+            self._pyelk.AREAS[node_index].member_zone[self._number] = False
         if self._area > 0:
-            self._pyelk.AREAS[self._area]._member_zone[self._number] = True
-        self._updated_at = event._time
+            self._pyelk.AREAS[self._area].member_zone[self._number] = True
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_zone_voltage(self, event):
@@ -265,11 +293,11 @@ class Zone(Node):
         ZZZ: Zone number '001' to '208' (ASCII decimal)
         DDD: Zone voltage data as 3 ACII decimal characters, actual value is DD.D (divide by 10)
         """
-        data = int(event._data_str[2:4]) / 10.0
+        data = int(event.data_str[2:4]) / 10.0
         if self._voltage == data:
             return
         self._voltage = data
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_zone_status_report(self, event):
@@ -290,7 +318,7 @@ class Zone(Node):
             self._enabled = False
         else:
             self._enabled = True
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_zone_update(self, event):
@@ -307,7 +335,7 @@ class Zone(Node):
             return
         self._state = state
         self._status = status
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
 
     def unpack_event_temp_request_reply(self, event):
@@ -318,8 +346,8 @@ class Zone(Node):
         NN: Device number in group (2 decimal ASCII digits)
         DDD: Temperature in ASCII decimal (offset by -60 for true value)
         """
-        data = int(event._data_str[3:6])
+        data = int(event.data_str[3:6])
         data = data - 60
         self._temp = data
-        self._updated_at = event._time
+        self._updated_at = event.time
         self._callback()
