@@ -94,12 +94,15 @@ class Event(object):
     EVENT_VALUE_READ = 'cr' # Read Custom Value
     EVENT_VALUE_READ_ALL = 'cp' # Read ALL Custom Values
     EVENT_VALUE_READ_REPLY = 'CR' # Reply With Custom Value
-    EVENT_VALUE_READ_ALL_REPLY = 'CP' # Reply With ALL Custom Values
     EVENT_VALUE_WRITE = 'cw' # Write Custom Value
 
     EVENT_COUNTER_READ = 'cv' # Read Counter Value
     EVENT_COUNTER_WRITE = 'cx' # Write Counter Value
     EVENT_COUNTER_REPLY = 'CV' # Reply With Counter Value Format
+
+    EVENT_RTC_REQUEST = 'rr' # Request Real Time Clock Data
+    EVENT_RTC_REPLY = 'RR' # Reply Real Time Clock Data
+    EVENT_RTC_WRITE = 'rw' # Write Real Time clock Data
 
     EVENT_DESCRIPTION = 'sd' # Request ASCII String Text Descriptions
     EVENT_DESCRIPTION_REPLY = 'SD' # Reply with ASCII String Text
@@ -115,7 +118,7 @@ class Event(object):
     DESCRIPTION_TELEPHONE_NAME = 6
     DESCRIPTION_LIGHT_NAME = 7
     DESCRIPTION_ALARM_DURATION_NAME = 8
-    DESCRIPTION_CUSTOM_SETTING = 9
+    DESCRIPTION_CUSTOM_SETTING_NAME = 9
     DESCRIPTION_COUNTER_NAME = 10
     DESCRIPTION_THERMOSTAT_NAME = 11
     DESCRIPTION_FUNCTION_KEY_1_NAME = 12
@@ -186,13 +189,15 @@ class Event(object):
         'cr' : EVENT_VALUE_READ,
         'cp' : EVENT_VALUE_READ_ALL,
         'CR' : EVENT_VALUE_READ_REPLY,
-        'CP' : EVENT_VALUE_READ_ALL_REPLY,
         'cw' : EVENT_VALUE_WRITE,
         'cv' : EVENT_COUNTER_READ,
         'cx' : EVENT_COUNTER_WRITE,
         'CV' : EVENT_COUNTER_REPLY,
         'sd' : EVENT_DESCRIPTION,
-        'SD' : EVENT_DESCRIPTION_REPLY
+        'SD' : EVENT_DESCRIPTION_REPLY,
+        'rr' : EVENT_RTC_REQUEST,
+        'RR' : EVENT_RTC_REPLY,
+        'rw' : EVENT_RTC_WRITE,
     }
 
     def __init__(self, pyelk=None):
@@ -275,7 +280,7 @@ class Event(object):
     def to_string(self):
         """Convert event data to string to be sent on the wire."""
         event_str = ''
-        if (self._data_str == '') and (len(self._data) > 0):
+        if (self._data_str == '') and self._data:
             self._data_str = ''.join(self._data)
         event_str += self._type
         event_str += self._data_str

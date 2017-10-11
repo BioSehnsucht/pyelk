@@ -5,7 +5,7 @@ def readme():
         return f.read()
 
 setup(name='PyElk',
-        version='0.1.8.dev3',
+        version='0.1.9.dev9',
         description='Python module to talk to Elk M1 Gold and M1 EZ8 security / integration panels.',
         long_description=readme(),
         url='https://github.com/BioSehnsucht/pyelk',
@@ -15,19 +15,21 @@ setup(name='PyElk',
         packages=[
             'PyElk',
             'PyElk.Area',
-            #'PyElk.Counter',
+            'PyElk.Counter',
             'PyElk.Event',
             'PyElk.Keypad',
             'PyElk.Node',
             'PyElk.Output',
+            'PyElk.Setting',
             'PyElk.Task',
             'PyElk.Thermostat',
-            #'PyElk.Value',
+            'PyElk.User',
             'PyElk.X10',
             'PyElk.Zone',
             ],
         install_requires=[
             'pyserial>=3.3',
+            'python-dateutil>=2.6',
             ],
         include_package_data=True,
         classifiers=[

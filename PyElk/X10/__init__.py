@@ -1,3 +1,4 @@
+"""Elk X10."""
 from collections import namedtuple
 from collections import deque
 import logging
@@ -5,12 +6,15 @@ import time
 import traceback
 import re
 
+from ..Const import *
 from ..Node import Node
 from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
 class X10(Node):
+    """Represents X10 (or other PLC) in the Elk."""
+
     X10_ALL_UNITS_OFF = 1 # in a House code
     X10_ALL_LIGHTS_ON = 2 # in a House code
     X10_UNIT_ON = 3
@@ -82,12 +86,12 @@ class X10(Node):
         # Let Node initialize common things
         super().__init__(pyelk, number)
         # Initialize PLC specific things
-        self._house = X10.HOUSE_A
+        self._house_code, self._device_code = self.housecode_from_int(self._number)
         self._level = 0
 
     def description_pretty(self, prefix='Light '):
         """X10 description, as text string (auto-generated if not set)."""
-        #FIXME : Why did I put this logic here?
+        # We can't know if devices really exist, only guess if they have an empty description
         if (self._description == '') or (self._description is None):
             self._enabled = False
         else:
@@ -95,17 +99,27 @@ class X10(Node):
         return super().description_pretty(prefix)
 
     def house_pretty(self):
-        return self.HOUSE_STR[self._house]
+        """Return house / device code as string."""
+        return self.HOUSE_STR[self._house_code]
 
     @property
-    def house(self):
-        return self._house
+    def house_code(self):
+        """Return house code."""
+        return self._house_code
+
+    @property
+    def device_code(self):
+        """Return device code."""
+        return self._device_code
 
     @property
     def level(self):
+        """Return brightness level."""
         return self._level
 
-    def housecode_from_int(self, i):
+    @classmethod
+    def housecode_from_int(cls, i):
+        """Convert integer device number to house / device code."""
         i = i - 1
         if i < 0:
             return 0, 0
@@ -113,13 +127,20 @@ class X10(Node):
         device = (i%16) + 1
         return house, device
 
-    def housecode_to_int(self, hc):
+    @classmethod
+    def housecode_to_int(cls, hc):
+        """Convert house / device code to integer device number."""
         hc_split = re.split(r'(\d+)', hc.upper())
         house = ord(hc_split[0]) - ord('A') + 1
         code = int(hc_split[1])
-        if (house >= self.HOUSE_A) and (house <= self.HOUSE_P) and (code > 0) and (code <= 16):
+        if (house >= cls.HOUSE_A) and (house <= cls.HOUSE_P) and (code > 0) and (code <= 16):
             return ((house - 1) * 16) + code
         return None
+
+    @classmethod
+    def housecode_to_index(cls, hc):
+        """Convert house / device code to integer device index."""
+        return cls.housecode_to_int(hc) - 1
 
     def set_level(self, level):
         """Set brightness level of device.
@@ -154,8 +175,8 @@ class X10(Node):
             duration = 0
         elif duration > 9999:
             duration = 9999
-        event.data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number, '02') + format(function, '02') \
+        event.data_str = X10.HOUSE_STR[self._house_code] \
+            + format(self._device_code, '02') + format(function, '02') \
             + format(extended, '02') + format(duration, '04')
         self._pyelk.elk_event_send(event)
 
@@ -168,8 +189,8 @@ class X10(Node):
         """
         event = Event()
         event.type = Event.EVENT_PLC_TURN_ON
-        event.data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number, '02')
+        event.data_str = X10.HOUSE_STR[self._house_code] \
+            + format(self._device_code, '02')
         self._pyelk.elk_event_send(event)
 
     def turn_off(self):
@@ -181,8 +202,8 @@ class X10(Node):
         """
         event = Event()
         event.type = Event.EVENT_PLC_TURN_OFF
-        event.data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number, '02')
+        event.data_str = X10.HOUSE_STR[self._house_code] \
+            + format(self._device_code, '02')
         self._pyelk.elk_event_send(event)
 
     def toggle(self):
@@ -194,11 +215,12 @@ class X10(Node):
         """
         event = Event()
         event.type = Event.EVENT_PLC_TOGGLE
-        event.data_str = X10.HOUSE_STR[self._house] \
-            + format(self._number, '02')
+        event.data_str = X10.HOUSE_STR[self._house_code] \
+            + format(self._device_code, '02')
         self._pyelk.elk_event_send(event)
 
     def _state_from_int(self, state):
+        """Convert dimming state integer value to device state and dimming level."""
         if state == 0:
             self._status = X10.STATUS_OFF
             self._level = 0
@@ -229,7 +251,7 @@ class X10(Node):
         B: Bank, 0=A1 to D16, 1=E1 to H16, 2=I1 to L16, 3=M1 to P16
         D[64]: 64 byte array ASCII encoded (D - 48 = 0); 0 = OFF, 1 = ON, 2-99 = light%
         """
-        offset = (((self._house-1) * 16) + (self._number - 1)) % 64
+        offset = self._index % 64
         state = event.data_dehex(True)[1+offset]
         self._state_from_int(state)
         self._updated_at = event.time

@@ -1,15 +1,18 @@
+"""Elk Keypad."""
 from collections import namedtuple
 from collections import deque
 import logging
 import time
 import traceback
 
+from ..Const import *
 from ..Node import Node
+from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
 class Keypad(Node):
-
+    """Represents a Keypad in the Elk."""
     PRESSED_NONE = 0
     PRESSED_1 = 1
     PRESSED_2 = 2
@@ -86,24 +89,34 @@ class Keypad(Node):
         self._code_bypass = False
         self._temp = -460
         self._temp_enabled = False
-        self._last_user_code = 0
+        self._last_user_num = -1
         self._last_user_at = 0
+        self._last_user_name = 'N/A'
 
     @property
     def temp(self):
+        """Returns the current temperature."""
         return self._temp
 
     @property
     def temp_enabled(self):
+        """Returns whether temperature readings are available / enabled."""
         return self._temp_enabled
 
     @property
     def last_user_code(self):
-        return self._last_user_code
+        """Returns last user code entered on keypad."""
+        return self._last_user_num
 
     @property
     def last_user_at(self):
+        """Returns last user code entered timestamp."""
         return self._last_user_at
+
+    @property
+    def last_user_name(self):
+        """Returns name of the last used user code."""
+        return self._last_user_name
 
     def description_pretty(self, prefix='Keypad '):
         """Keypad description, as text string (auto-generated if not set)."""
@@ -116,12 +129,13 @@ class Keypad(Node):
         D[16]: 16 byte ASCII character array of area assignments, where
         '0' is no area assigned, '1' is assigned to Area 1, etc
         """
-        area = event.data_dehex(True)[self._number-1]
+        area = event.data_dehex(True)[self._index]
         self._area = area
-        for node_index in range(1, 9):
-            self._pyelk.AREAS[node_index].member_keypad[self._number] = False
+        self._area_index = self._area - 1
+        for node_index in range(0, AREA_MAX_COUNT):
+            self._pyelk.AREAS[node_index].member_keypad[self._index] = False
         if self._area > 0:
-            self._pyelk.AREAS[self._area].member_keypad[self._number] = True
+            self._pyelk.AREAS[self._area_index].member_keypad[self._index] = True
 
         self._updated_at = event.time
         self._callback()
@@ -137,20 +151,19 @@ class Keypad(Node):
         C: If '1', code required to bypass
         P[8]: Beep and chime mode per Area (See Area constants)
         """
-        key = int(event.data_str[:2])
-        if key == self._pressed:
-            return
-        self._pressed = key
+        key = int(event.data_str[2:4])
+        if key != self._pressed:
+            self._pressed = key
         for i in range(0, 6):
-            self._illum[i] = event.data_dehex()[2+i]
-        if event.data[8] == '1':
+            self._illum[i] = event.data_dehex()[4+i]
+        if event.data[10] == '1':
             self._code_bypass = True
         else:
             self._code_bypass = False
         # Chime is actually by area, not keypad, even though
         # it is returned from the keypad status report.
-        for node_index in range(1, 9):
-            self._pyelk.AREAS[node_index].chime_mode = event.data_dehex(True)[8+node_index-1]
+        for node_index in range(0, AREA_MAX_COUNT):
+            self._pyelk.AREAS[node_index].chime_mode = event.data_dehex(True)[11+node_index]
         self._updated_at = event.time
         self._callback()
 
@@ -183,21 +196,26 @@ class Keypad(Node):
         indicating which valid user code was entered
         NN: Keypad number that generated the code
         """
-        #failed_code = event.data_str[0:12]
+        # failed_code = event.data_str[0:12]
         user = int(event.data_str[12:15])
-        #keypad_number = int(event.data_str[15:17])
-        if user == 0:
+        user = user - 1
+        # keypad_number = int(event.data_str[15:17])
+        if user < 0:
             # Invalid code was entered
-            # Currently don't do anything with this
-            return
+            self._last_user_name = 'Invalid'
         else:
             # Valid user code was entered
-            self._last_user_code = user
-            self._last_user_at = event.time
-            if self._area > 0:
-                self._pyelk.AREAS[self._area].last_user_code = user
-                self._pyelk.AREAS[self._area].last_user_at = event.time
-                # Force area update to propogate the last user code / at update
-                self._pyelk.AREAS[self._area].updated_at = event.time
+            self._last_user_name = self._pyelk.USERS[user].description
+        self._last_user_num = user
+        self._last_user_at = event.time
+        if self._area > 0:
+            self._pyelk.AREAS[self._area_index].last_user_num = user
+            self._pyelk.AREAS[self._area_index].last_user_at = event.time
+            self._pyelk.AREAS[self._area_index].last_user_name = self._last_user_name
+            self._pyelk.AREAS[self._area_index].last_keypad_num = self._number
+            self._pyelk.AREAS[self._area_index].last_keypad_name = self._description
+            # Force area update to propogate the last user code / at update
+            self._pyelk.AREAS[self._area_index].updated_at = event.time
+            self._pyelk.AREAS[self._area_index].callback_trigger()
         self._updated_at = event.time
         self._callback()

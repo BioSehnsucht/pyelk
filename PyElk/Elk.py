@@ -5,65 +5,67 @@ from collections import deque
 import logging
 import time
 import traceback
+import threading
 import serial
 import serial.threaded
 
+from .Const import *
 from .Area import Area
+from .Counter import Counter
 from .Event import Event
 from .Keypad import Keypad
 from .Output import Output
+from .Setting import Setting
 from .Task import Task
 from .Thermostat import Thermostat
+from .User import User
 from .X10 import X10
 from .Zone import Zone
+
 
 _LOGGER = logging.getLogger(__name__)
 
 # Events automatically handled under normal circumstances
 # by elk_process_event
 EVENT_LIST_AUTO_PROCESS = [
+    Event.EVENT_ALARM_ZONE_REPORT,
+    Event.EVENT_ALARM_MEMORY,
+    Event.EVENT_ARMING_STATUS_REPORT,
+    Event.EVENT_COUNTER_REPLY,
+    Event.EVENT_ENTRY_EXIT_TIMER,
+    Event.EVENT_ETHERNET_TEST,
     Event.EVENT_INSTALLER_ELKRP,
     Event.EVENT_INSTALLER_EXIT,
-    Event.EVENT_TROUBLE_STATUS_REPLY,
-    Event.EVENT_ALARM_MEMORY,
-    Event.EVENT_ENTRY_EXIT_TIMER,
-    Event.EVENT_USER_CODE_ENTERED,
-    Event.EVENT_TASK_UPDATE,
-    Event.EVENT_OUTPUT_UPDATE,
-    Event.EVENT_ZONE_UPDATE,
+    Event.EVENT_KEYPAD_AREA_REPLY,
     Event.EVENT_KEYPAD_STATUS_REPORT,
-    Event.EVENT_ETHERNET_TEST,
-    Event.EVENT_ARMING_STATUS_REPORT,
-    Event.EVENT_ALARM_ZONE_REPORT,
+    Event.EVENT_OUTPUT_STATUS_REPORT,
+    Event.EVENT_OUTPUT_UPDATE,
+    Event.EVENT_PLC_CHANGE_UPDATE,
+    Event.EVENT_RTC_REPLY,
+    Event.EVENT_PLC_STATUS_REPLY,
+    Event.EVENT_TASK_UPDATE,
     Event.EVENT_TEMP_REQUEST_REPLY,
     Event.EVENT_THERMOSTAT_DATA_REPLY,
-    Event.EVENT_PLC_CHANGE_UPDATE,
+    Event.EVENT_TROUBLE_STATUS_REPLY,
+    Event.EVENT_USER_CODE_ENTERED,
+    Event.EVENT_VALUE_READ_REPLY,
     Event.EVENT_VERSION_REPLY,
+    Event.EVENT_ZONE_DEFINITION_REPLY,
+    Event.EVENT_ZONE_PARTITION_REPORT,
+    Event.EVENT_ZONE_STATUS_REPORT,
+    Event.EVENT_ZONE_UPDATE,
     ]
 
 # Events specifically NOT handled automatically by elk_process_event
 # while rescan is in progress
 EVENT_LIST_RESCAN_BLACKLIST = [
-    Event.EVENT_ALARM_ZONE_REPORT,
-    Event.EVENT_ARMING_STATUS_REPORT,
-    Event.EVENT_OUTPUT_STATUS_REPORT,
-    Event.EVENT_OUTPUT_UPDATE,
-    Event.EVENT_KEYPAD_AREA_REPLY,
-    Event.EVENT_KEYPAD_STATUS_REPORT,
     Event.EVENT_ZONE_DEFINITION_REPLY,
-    Event.EVENT_ZONE_PARTITION_REPORT,
     Event.EVENT_ZONE_STATUS_REPORT,
-    Event.EVENT_ZONE_UPDATE,
-    Event.EVENT_ZONE_VOLTAGE_REPLY,
-    Event.EVENT_TEMP_REQUEST_REPLY,
-    Event.EVENT_THERMOSTAT_DATA_REPLY,
-    Event.EVENT_PLC_STATUS_REPLY,
     ]
 
 
-class LineHandler(serial.threaded.LineReader):
+class SerialInputHandler(serial.threaded.LineReader):
     """LaneHandler implementation for serial.threaded."""
-    _pyelk = None
 
     def set_pyelk(self, pyelk):
         """Sets the pyelk instance to use."""
@@ -73,7 +75,7 @@ class LineHandler(serial.threaded.LineReader):
     def connection_made(self, transport):
         """Called when connection is made."""
         _LOGGER.debug('Calling super connection_made')
-        super(LineHandler, self).connection_made(transport)
+        super(SerialInputHandler, self).connection_made(transport)
         _LOGGER.debug('Connected')
 
     def handle_line(self, line):
@@ -84,38 +86,74 @@ class LineHandler(serial.threaded.LineReader):
     def connection_lost(self, exc):
         """Connection was lost."""
         _LOGGER.debug('Lost connection')
+        self._pyelk._connection_output.stop()
         if exc:
             traceback.print_exc(exc)
+
+class SerialOutputHandler(object):
+    """SerialOutputHandler handles outputting events to serial.threaded via deque."""
+
+    def set_pyelk(self, pyelk):
+        """Sets the pyelk instance to use."""
+        self._pyelk = pyelk
+
+    def __init__(self, ratelimit=1):
+        """Setup output handler."""
+        self._pyelk = None
+        self._interval = 1.0 / ratelimit
+        self._stopping = False
+        self._event = threading.Event()
+        thread = threading.Thread(target=self.run, args=())
+        thread.start()
+
+    def stop(self):
+        """Stop thread."""
+        self._stopping = True
+
+    def pause(self):
+        """Pause thread."""
+        self._event.clear()
+
+    def resume(self):
+        """Resume thread."""
+        self._event.set()
+
+    def run(self):
+        """Thread that handles outputting queued events to the Elk."""
+        while not self._stopping:
+            self._event.wait()
+            self._event.clear()
+            _LOGGER.debug('woke up send queue : ' + str(len(self._pyelk._queue_outgoing_elk_events)))
+            for event in list(self._pyelk._queue_outgoing_elk_events):
+                self._pyelk.elk_event_send_actual(event)
+                self._pyelk._queue_outgoing_elk_events.remove(event)
+                time.sleep(self._interval)
 
 class Elk(object):
     """
     This is the main class that handles interaction with the Elk panel
 
-    |  address: String of the IP address of the ELK-M1XEP,
+    |  config['host']: String of the IP address of the ELK-M1XEP,
        or device name of the serial device connected to the Elk panel,
        ex: 'socket://192.168.12.34:2101' or '/dev/ttyUSB0'
-    |  usercode: String of the user code to authenticate to the Elk panel
+    |  config['ratelimit'] [optional]: rate limit for outgoing events (default 10/s)
     |  log: [optional] Log file class from logging module
 
-    :ivar connected: Read only boolean value indicating if the class is
-                     connected to the panel.
     :ivar log: Logger used by the class and its children.
-    :ivar zones: :class:`~PyElk.Zones.Zones` manager that interacts with Elk
-                 input zones.
-    :ivar outputs: :class:`~PyElk.Outputs.Outputs` manager that interacts with
-                 outputs.
-    :ivar areas: :class:`~PyElk.Areas.Areas` manager that interacts with areas.
     """
 
     STATE_DISCONNECTED = 0
     STATE_RUNNING = 1
     STATE_SCAN_AREAS = 10
-    STATE_SCAN_KEYPADS = 11
-    STATE_SCAN_OUTPUTS = 12
-    STATE_SCAN_TASKS = 13
-    STATE_SCAN_THERMOSTATS = 14
-    STATE_SCAN_X10 = 15
-    STATE_SCAN_ZONES = 16
+    STATE_SCAN_COUNTERS = 11
+    STATE_SCAN_KEYPADS = 12
+    STATE_SCAN_OUTPUTS = 13
+    STATE_SCAN_SETTINGS = 14
+    STATE_SCAN_TASKS = 15
+    STATE_SCAN_THERMOSTATS = 16
+    STATE_SCAN_USERS = 17
+    STATE_SCAN_X10 = 18
+    STATE_SCAN_ZONES = 19
 
     def __init__(self, config, log=None):
         """Initializes Elk object.
@@ -130,16 +168,23 @@ class Elk(object):
         self._reconnect_thread = None
         self._config = config
         self._queue_incoming_elk_events = deque(maxlen=1000)
+        self._queue_outgoing_elk_events = deque(maxlen=1000)
         self._queue_exported_events = deque(maxlen=1000)
         self._rescan_in_progress = False
+        self._update_in_progress = False
+        self._elkrp_connected = False
         self._elk_versions = None
         self._connection_protocol = None
         self._connection_thread = None
+        self._connection_output = None
         self.AREAS = []
+        self.COUNTERS = []
         self.KEYPADS = []
         self.OUTPUTS = []
+        self.SETTINGS = []
         self.TASKS = []
         self.THERMOSTATS = []
+        self.USERS = []
         self.X10 = []
         self.ZONES = []
 
@@ -154,13 +199,16 @@ class Elk(object):
         # May change back to 0..N at a later date
 
         max_range = {
-            'zone': 208,
-            'output' : 208,
-            'area' : 8,
-            'keypad' : 16,
-            'thermostat' : 16,
-            'x10' : 256,
-            'task' : 32,
+            'zone': ZONE_MAX_COUNT,
+            'output' : OUTPUT_MAX_COUNT,
+            'area' : AREA_MAX_COUNT,
+            'keypad' : KEYPAD_MAX_COUNT,
+            'thermostat' : THERMOSTAT_MAX_COUNT,
+            'user' : USER_MAX_COUNT,
+            'x10' : X10_MAX_COUNT,
+            'task' : TASK_MAX_COUNT,
+            'counter' : COUNTER_MAX_COUNT,
+            'setting' : SETTING_MAX_COUNT,
             }
 
         range_order = {
@@ -171,6 +219,9 @@ class Elk(object):
             4 : 'thermostat',
             5 : 'x10',
             6 : 'task',
+            7 : 'user',
+            8 : 'counter',
+            9 : 'setting',
             }
 
         for device_class_num in range_order:
@@ -183,42 +234,40 @@ class Elk(object):
                 if 'exclude' in self._config[device_class]:
                     exclude_range = self._list_from_ranges(self._config[device_class]['exclude'])
             if include_range is None:
-                include_range = range(1, max_range[device_class] + 1)
+                include_range = range(0, max_range[device_class])
             if exclude_range is None:
                 exclude_range = []
             self.log.debug('PyElk config - ' + device_class + ' include range: %s', include_range)
             self.log.debug('PyElk config - ' + device_class + ' exclude range: %s', exclude_range)
-            for device_num in range(0, max_range[device_class] + 1):
-                if device_num == 0:
-                    device = None
-                else:
-                    # Create device
-                    if device_class == 'zone':
-                        device = Zone(self)
-                    elif device_class == 'output':
-                        device = Output(self)
-                    elif device_class == 'area':
-                        device = Area(self)
-                    elif device_class == 'keypad':
-                        device = Keypad(self)
-                    elif device_class == 'thermostat':
-                        device = Thermostat(self)
-                    elif device_class == 'x10':
-                        device = X10(self)
-                    elif device_class == 'task':
-                        device = Task(self)
-                    # handle exceptions to general setup
-                    if device_class == 'x10':
-                        device._house, device.number = device.housecode_from_int(device_num)
-                    else:
-                        device.number = device_num
-                    # perform inclusion/exclusion
-                    if device_num in include_range:
-                        self.log.debug(device_class + ' ' + str(device_num) + ' included')
-                        device.included = True
-                    if device_num in exclude_range:
-                        self.log.debug(device_class + ' ' + str(device_num) + ' excluded')
-                        device.included = False
+            for device_num in range(0, max_range[device_class]):
+                # Create device
+                if device_class == 'zone':
+                    device = Zone(self, device_num)
+                elif device_class == 'output':
+                    device = Output(self, device_num)
+                elif device_class == 'area':
+                    device = Area(self, device_num)
+                elif device_class == 'keypad':
+                    device = Keypad(self, device_num)
+                elif device_class == 'thermostat':
+                    device = Thermostat(self, device_num)
+                elif device_class == 'x10':
+                    device = X10(self, device_num)
+                elif device_class == 'task':
+                    device = Task(self, device_num)
+                elif device_class == 'user':
+                    device = User(self, device_num)
+                elif device_class == 'counter':
+                    device = Counter(self, device_num)
+                elif device_class == 'setting':
+                    device = Setting(self, device_num)
+                # perform inclusion/exclusion
+                if device_num in include_range:
+                    self.log.debug(device_class + ' ' + str(device_num) + ' included')
+                    device.included = True
+                if device_num in exclude_range:
+                    self.log.debug(device_class + ' ' + str(device_num) + ' excluded')
+                    device.included = False
                 # Append device
                 if device_class == 'zone':
                     self.ZONES.append(device)
@@ -234,8 +283,17 @@ class Elk(object):
                     self.X10.append(device)
                 elif device_class == 'task':
                     self.TASKS.append(device)
+                elif device_class == 'user':
+                    self.USERS.append(device)
+                elif device_class == 'counter':
+                    self.COUNTERS.append(device)
+                elif device_class == 'setting':
+                    self.SETTINGS.append(device)
         try:
-            self.connect(self._config['host'])
+            ratelimit = 10
+            if 'ratelimit' in self._config:
+                ratelimit = self._config['ratelimit']
+            self.connect(self._config['host'], ratelimit)
 
         except ValueError as exception_error:
             try:
@@ -247,7 +305,10 @@ class Elk(object):
             self._rescan()
 
     def __del__(self):
+        """Shutdown communications."""
         if self._connection_thread is not None:
+            self._connection_output.stop()
+            self._connection_output.close()
             self._connection_thread.close()
 
     @property
@@ -257,17 +318,20 @@ class Elk(object):
             return self._connection_thread.alive and self._connection_thread.serial.is_open
         return False
 
-    def connect(self, address):
+    def connect(self, address, ratelimit):
         """Connect to the Elk panel.
 
         address: Host to connect to in either
         "socket://IP.Add.re.ss:Port" or "/dev/ttyUSB0" format.
+        ratelimit: rate limit for outgoing events
         """
         self._connection = serial.serial_for_url(address, timeout=1)
-        self._connection_thread = serial.threaded.ReaderThread(self._connection, LineHandler)
+        self._connection_thread = serial.threaded.ReaderThread(self._connection, SerialInputHandler)
         self._connection_thread.start()
         self._connection_transport, self._connection_protocol = self._connection_thread.connect()
         self._connection_protocol.set_pyelk(self)
+        self._connection_output = SerialOutputHandler(ratelimit)
+        self._connection_output.set_pyelk(self)
         _LOGGER.debug('ReaderThread created')
 
     def _rescan(self):
@@ -296,6 +360,12 @@ class Elk(object):
         self.scan_thermostats()
         self._state = self.STATE_SCAN_X10
         self.scan_x10()
+        self._state = self.STATE_SCAN_USERS
+        self.scan_users()
+        self._state = self.STATE_SCAN_COUNTERS
+        self.scan_counters()
+        self._state = self.STATE_SCAN_SETTINGS
+        self.scan_settings()
         self._rescan_in_progress = False
         self._state = self.STATE_RUNNING
 
@@ -309,6 +379,19 @@ class Elk(object):
         self._queue_exported_events.append(data)
 
     def elk_event_send(self, event):
+        """Queue an Elk event to the Elk.
+
+        event: Event to send to Elk.
+        """
+        event_str = event.to_string()
+        if self._elkrp_connected:
+            _LOGGER.debug('Discarding due to ElkRP: {}\n'.format(repr(event_str)))
+        else:
+            _LOGGER.debug('Queuing: {}\n'.format(repr(event_str)))
+            self._queue_outgoing_elk_events.append(event)
+            self._connection_output.resume()
+
+    def elk_event_send_actual(self, event):
         """Send an Elk event to the Elk.
 
         event: Event to send to Elk.
@@ -340,7 +423,7 @@ class Elk(object):
         """
         endtime = time.time() + timeout
         event = None
-        if (type(data_match) is not list) and (data_match is not None):
+        if (not isinstance('list', data_match)) and (data_match is not None):
             data_match = [data_match]
         while time.time() <= endtime:
             for elem in list(self._queue_incoming_elk_events):
@@ -362,10 +445,14 @@ class Elk(object):
         return False
 
     def update(self):
+        """Process any available incoming events."""
         self.elk_queue_process()
 
     def elk_queue_process(self):
         """Process the incoming event deque."""
+        if self._update_in_progress:
+            return
+        self._update_in_progress = True
         _LOGGER.debug('elk_queue_process - checking events')
         for event in list(self._queue_incoming_elk_events):
             # Remove stale events over 120 seconds old, normally shouldn't happen
@@ -392,19 +479,23 @@ class Elk(object):
                         return
                     elif event.type == Event.EVENT_INSTALLER_ELKRP:
                         # Consume ElkRP Connect events
-                        # but we don't do anything with them
-                        # TODO: Start buffering or suspend outgoing events
-                        # while RP is connected, because apparently Elk stops
-                        # responding to non-RP connections
-                        #rp_status = int(event.data_str[0:1])
+                        # but we don't do anything with them except prevent sending events
+                        rp_status = int(event.data_str[0:1])
                         # Status 0: Elk RP disconnected (IE also sent, no need
                         # to rescan from RP event)
+                        if rp_status == 0:
+                            self._queue_outgoing_elk_events.clear()
+                            self._elkrp_connected = False
                         # Status 1: Elk RP connected, M1XEP poll reply, this
                         # occurs in response to commands sent while RP is
                         # connected
+                        elif rp_status == 1:
+                            self._elkrp_connected = True
                         # Status 2: Elk RP connected, M1XEP poll reply during
                         # M1XEP powerup/reboot, this happens during RP
                         # disconnect sequence before it's completely disco'd
+                        elif rp_status == 2:
+                            self._elkrp_connected = True
                         _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_ELKRP')
                         continue
                     elif event.type == Event.EVENT_ETHERNET_TEST:
@@ -413,8 +504,10 @@ class Elk(object):
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ETHERNET_TEST')
                         continue
                     elif event.type == Event.EVENT_ALARM_MEMORY:
-                        # TODO: Implement
+                        # Alarm Memory update
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ALARM_MEMORY')
+                        for node_index in range(0, AREA_MAX_COUNT):
+                            self.AREAS[node_index].unpack_event_alarm_memory(event)
                         continue
                     elif event.type == Event.EVENT_TROUBLE_STATUS_REPLY:
                         # TODO: Implement
@@ -459,21 +552,21 @@ class Elk(object):
                     elif event.type == Event.EVENT_ARMING_STATUS_REPORT:
                         # Alarm status changed
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ARMING_STATUS_REPORT')
-                        for node_index in range(1, 9):
+                        for node_index in range(0, AREA_MAX_COUNT):
                             self.AREAS[node_index].unpack_event_arming_status_report(event)
                         continue
                     elif event.type == Event.EVENT_ALARM_ZONE_REPORT:
                         # Alarm zone changed
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ALARM_ZONE_REPORT')
-                        for node_index in range(1, 209):
+                        for node_index in range(0, ZONE_MAX_COUNT):
                             self.ZONES[node_index].unpack_event_alarm_zone(event)
                         continue
                     elif event.type == Event.EVENT_TEMP_REQUEST_REPLY:
                         # Temp sensor update
                         _LOGGER.debug('elk_queue_process - Event.EVENT_TEMP_REQUEST_REPLY')
                         group = int(event.data[0])
-                        node_index = int(event.data_str[1:3])
-                        if node_index == 0:
+                        node_index = int(event.data_str[1:3])-1
+                        if node_index < 0:
                             continue
                         if group == 0:
                             # Group 0 temp probe (Zone 1-16)
@@ -491,16 +584,16 @@ class Elk(object):
                     elif event.type == Event.EVENT_THERMOSTAT_DATA_REPLY:
                         # Thermostat update
                         _LOGGER.debug('elk_queue_process - Event.EVENT_THERMOSTAT_DATA_REPLY')
-                        node_index = int(event.data_str[0:2])
-                        if node_index > 0:
+                        node_index = int(event.data_str[0:2])-1
+                        if node_index >= 0:
                             self.THERMOSTATS[node_index].unpack_event_thermostat_data_reply(event)
                         continue
                     elif event.type == Event.EVENT_PLC_CHANGE_UPDATE:
                         # PLC Change Update
                         _LOGGER.debug('elk_queue_process - Event.EVENT_PLC_CHANGE_UPDATE')
-                        house = ord(event.data_str[0]) - ord('A')
-                        device = int(event.data_str[1:3])
-                        offset = (house * 16) + device
+                        house_code = event.data_str[0]
+                        device_code = int(event.data_str[1:3])
+                        offset = X10.housecode_to_index(hc=house_code+device_code)
                         self.X10[offset].unpack_event_plc_change_update(event)
                         continue
                     elif event.type == Event.EVENT_VERSION_REPLY:
@@ -508,6 +601,69 @@ class Elk(object):
                         _LOGGER.debug('elk_queue_process - Event.EVENT_VERSION_REPLY')
                         self.unpack_event_version_reply(event)
                         continue
+                    elif event.type == Event.EVENT_COUNTER_REPLY:
+                        # Counter reply
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_COUNTER_REPLY')
+                        node_index = int(event.data_str[0:2])-1
+                        if node_index >= 0:
+                            self.COUNTERS[node_index].unpack_event_counter_reply(event)
+                        continue
+                    elif event.type == Event.EVENT_VALUE_READ_REPLY:
+                        # Setting reply
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_VALUE_READ_REPLY')
+                        node_index = int(event.data_str[0:2])-1
+                        _LOGGER.debug('node_index : ' + str(node_index))
+                        if node_index < 0:
+                            # Reply all
+                            for node_index in range(0, SETTING_MAX_COUNT):
+                                self.SETTINGS[node_index].unpack_event_value_read_reply(event)
+                        else:
+                            # Reply one
+                            self.SETTINGS[node_index].unpack_event_value_read_reply(event)
+                        continue
+                    elif event.type == Event.EVENT_RTC_REPLY:
+                        # Real Time Clock data reply
+                        # We don't do anything with this currently
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_RTC_REPLY')
+                        continue
+                    elif event.type == Event.EVENT_OUTPUT_STATUS_REPORT:
+                        # Output Status Report
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_OUTPUT_STATUS_REPORT')
+                        for node_index in range(0, OUTPUT_MAX_COUNT):
+                            self.OUTPUTS[node_index].unpack_event_output_status_report(event)
+                        continue
+                    elif event.type == Event.EVENT_KEYPAD_AREA_REPLY:
+                        # Keypad Area Reply
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_KEYPAD_AREA_REPLY')
+                        for node_index in range(0, KEYPAD_MAX_COUNT):
+                            self.KEYPADS[node_index].unpack_event_keypad_area_reply(event)
+                        continue
+                    elif event.type == Event.EVENT_PLC_STATUS_REPLY:
+                        # PLC Status Reply
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_PLC_STATUS_REPLY')
+                        group_base = int(event.data_str[0])
+                        for node_index in range(group_base, group_base+64):
+                            self.X10[node_index].unpack_event_plc_status_reply(event)
+                        continue
+                    elif event.type == Event.EVENT_ZONE_PARTITION_REPORT:
+                        # Zone Partition Report
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_ZONE_PARTITION_REPORT')
+                        for node_index in range(0, ZONE_MAX_COUNT):
+                            self.ZONES[node_index].unpack_event_zone_partition(event)
+                        continue
+                    elif event.type == Event.EVENT_ZONE_DEFINITION_REPLY:
+                        # Zone Definition Reply
+                        _LOGGER.debug('elk_queue_process - Event.EVENT_ZONE_DEFINITION_REPLY')
+                        for node_index in range(0, ZONE_MAX_COUNT):
+                            self.ZONES[node_index].unpack_event_zone_definition(event)
+                        continue
+                    elif event.type == Event.EVENT_ZONE_STATUS_REPORT:
+                        # Zone Status Report
+                        _LOGGER.debug('elk_queue_process - got Event.EVENT_ZONE_STATUS_REPORT')
+                        for node_index in range(0, ZONE_MAX_COUNT):
+                            self.ZONES[node_index].unpack_event_zone_status_report(event)
+                        continue
+        self._update_in_progress = False
 
     def get_version(self):
         """Get Elk and (if available) M1XEP version information."""
@@ -533,23 +689,13 @@ class Elk(object):
         event = Event()
         event.type = Event.EVENT_ZONE_STATUS
         self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_ZONE_STATUS_REPORT)
+        reply = self.elk_event_scan(Event.EVENT_ZONE_STATUS_REPORT, timeout=30)
         if reply:
             _LOGGER.debug('scan_zones : got Event.EVENT_ZONE_STATUS_REPORT')
-            for node_index in range(1, 209):
+            for node_index in range(0, ZONE_MAX_COUNT):
                 self.ZONES[node_index].unpack_event_zone_status_report(reply)
         else:
-            # Some kind of error, should never happen.
-            return False
-        # Get Zone alarm type configuration
-        event = Event()
-        event.type = Event.EVENT_ALARM_ZONE
-        self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_ALARM_ZONE_REPORT)
-        if reply:
-            _LOGGER.debug('scan_zones : got Event.EVENT_ALARM_ZONE_REPORT')
-            for node_index in range(1, 209):
-                self.ZONES[node_index].unpack_event_alarm_zone(reply)
+            _LOGGER.debug('scan_zones : timeout waiting for Event.EVENT_ZONE_STATUS_REPORT')
         # Get Zone definition type configuration
         event = Event()
         event.type = Event.EVENT_ZONE_DEFINITION
@@ -557,200 +703,173 @@ class Elk(object):
         reply = self.elk_event_scan(Event.EVENT_ZONE_DEFINITION_REPLY)
         if reply:
             _LOGGER.debug('scan_zones : got Event.EVENT_ZONE_DEFINITION_REPLY')
-            for node_index in range(1, 209):
+            for node_index in range(0, ZONE_MAX_COUNT):
                 self.ZONES[node_index].unpack_event_zone_definition(reply)
+        # Get Zone alarm type configuration
+        event = Event()
+        event.type = Event.EVENT_ALARM_ZONE
+        self.elk_event_send(event)
         # Get Zone area (partition) assignments
         event = Event()
         event.type = Event.EVENT_ZONE_PARTITION
         self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_ZONE_PARTITION_REPORT)
-        if reply:
-            _LOGGER.debug('scan_zones : got Event.EVENT_ZONE_PARTITION_REPORT')
-            for node_index in range(1, 209):
-                self.ZONES[node_index].unpack_event_zone_partition(reply)
         # Check for Analog zones
-        node_index = 1
-        while node_index < 209:
+        for node_index in range(0, ZONE_MAX_COUNT):
             if (self.ZONES[node_index].definition
                     == Zone.DEFINITION_ANALOG_ZONE)\
             and (self.ZONES[node_index].included is True):
                 event = Event()
                 event.type = Event.EVENT_ZONE_VOLTAGE
-                event.data_str = format(node_index, '03')
+                event.data_str = format(self.ZONES[node_index].number, '03')
                 self.elk_event_send(event)
-                reply = self.elk_event_scan(Event.EVENT_ZONE_VOLTAGE_REPLY)
-                if reply:
-                    _LOGGER.debug('scan_zones : got Event.EVENT_ZONE_VOLTAGE_REPLY')
-                    zonenumber = int(reply.data_str[0:3])
-                    self.ZONES[zonenumber].unpack_event_zone_voltage(reply)
-            node_index += 1
         # Check for Temperature zones on Zones 1-16
-        for node_index in range(1, 17):
+        for node_index in range(0, ZONE_MAX_TEMP_COUNT):
             if (self.ZONES[node_index].definition == Zone.DEFINITION_TEMPERATURE)\
             and (self.ZONES[node_index].included is True):
                 event = Event()
                 event.type = Event.EVENT_TEMP_REQUEST
-                event.data_str = '0' + format(node_index, '02')
+                event.data_str = '0' + format(self.ZONES[node_index].number, '02')
                 self.elk_event_send(event)
-                # Request Group 0 (Zone) temperature
-                reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY,
-                                            '0' + format(node_index, '02'))
-                if reply:
-                    _LOGGER.debug('scan_zones : got Event.EVENT_TEMP_REQUEST_REPLY')
-                    group = int(reply.data[0])
-                    number = int(event.data_str[1:3])
-                    _LOGGER.debug('scan_zones : temperature group={} number={} rawtemp={}'\
-                                  .format(group, number, reply.data_str[3:6]))
-                    if (group == 0) and (number == node_index):
-                        self.ZONES[number].unpack_event_temp_request_reply(reply)
-                    else:
-                        _LOGGER.debug('scan_zones : error reading temperature, ' + str(number))
         # Get Zone descriptions
-        node_index = 1
-        while (node_index) and (node_index < 209):
-            if self.ZONES[node_index].included is True:
-                node_index = self.get_description(Event.DESCRIPTION_ZONE_NAME,
-                                                  node_index)
+        desc_index = 1
+        while (desc_index) and (desc_index <= ZONE_MAX_COUNT):
+            if self.ZONES[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_ZONE_NAME,
+                                                  desc_index)
             else:
-                node_index = node_index + 1
+                desc_index = desc_index + 1
 
     def scan_outputs(self):
         """Scan all Outputs and their information."""
         event = Event()
         event.type = Event.EVENT_OUTPUT_STATUS
         self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_OUTPUT_STATUS_REPORT)
-        if reply:
-            _LOGGER.debug('scan_outputs : got Event.EVENT_OUTPUT_STATUS_REPORT')
-            for node_index in range(1, 209):
-                self.OUTPUTS[node_index].unpack_event_output_status_report(reply)
-        else:
-            return False
 
-        node_index = 1
-        while (node_index) and (node_index < 209):
-            if self.OUTPUTS[node_index].included is True:
-                node_index = self.get_description(
-                    Event.DESCRIPTION_OUTPUT_NAME, node_index)
+        desc_index = 1
+        while (desc_index) and (desc_index <= OUTPUT_MAX_COUNT):
+            if self.OUTPUTS[desc_index-1].included is True:
+                desc_index = self.get_description(
+                    Event.DESCRIPTION_OUTPUT_NAME, desc_index)
             else:
-                node_index = node_index + 1
+                desc_index = desc_index + 1
 
     def scan_areas(self):
         """Scan all Areas and their information."""
         event = Event()
         event.type = Event.EVENT_ARMING_STATUS
         self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_ARMING_STATUS_REPORT)
-        if reply:
-            _LOGGER.debug('scan_areas : got Event.EVENT_ARMING_STATUS_REPORT')
-            for node_index in range(1, 9):
-                self.AREAS[node_index].unpack_event_arming_status_report(reply)
-        else:
-            return False
 
-        node_index = 1
-        while (node_index) and (node_index < 9):
-            if self.AREAS[node_index].included is True:
-                node_index = self.get_description(Event.DESCRIPTION_AREA_NAME,
-                                                  node_index)
+        desc_index = 1
+        while (desc_index) and (desc_index <= AREA_MAX_COUNT):
+            if self.AREAS[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_AREA_NAME,
+                                                  desc_index)
             else:
-                node_index = node_index + 1
+                desc_index = desc_index + 1
 
     def scan_keypads(self):
         """Scan all Keypads and their information."""
         event = Event()
         event.type = Event.EVENT_KEYPAD_AREA
         self.elk_event_send(event)
-        reply = self.elk_event_scan(Event.EVENT_KEYPAD_AREA_REPLY)
-        if reply:
-            _LOGGER.debug('scan_keypads : got Event.EVENT_KEYPAD_AREA_REPLY')
-            for node_index in range(1, 17):
-                self.KEYPADS[node_index].unpack_event_keypad_area_reply(reply)
-                if self.KEYPADS[node_index].included is True:
-                    event = Event()
-                    event.type = Event.EVENT_KEYPAD_STATUS
-                    event.data_str = format(node_index, '02')
-                    self.elk_event_send(event)
-                    report = self.elk_event_scan(Event.EVENT_KEYPAD_STATUS_REPORT)
-                    if report:
-                        _LOGGER.debug('scan_keypads : got Event.EVENT_KEYPAD_STATUS_REPORT')
-                        keypadnumber = int(report.data_str[:2])
-                        self.KEYPADS[keypadnumber].unpack_event_keypad_status_report(report)
-                    event = Event()
-                    event.type = Event.EVENT_TEMP_REQUEST
-                    event.data_str = '1' + format(node_index, '02')
-                    self.elk_event_send(event)
-                    temp_reply = self.elk_event_scan(Event.EVENT_TEMP_REQUEST_REPLY,\
-                                                     '1' + format(node_index, '02'))
-                    if temp_reply:
-                        _LOGGER.debug('scan_keypads : got Event.EVENT_TEMP_REQUEST_REPLY')
-                        group = int(temp_reply.data[0])
-                        number = int(temp_reply.data_str[1:3])
-                        _LOGGER.debug('scan_keypads : temperature group={} number={} rawtemp={}'\
-                                      .format(group, number, temp_reply.data_str[3:6]))
-                        if (group == 1) and (number == node_index):
-                            self.KEYPADS[keypadnumber].unpack_event_temp_request_reply(temp_reply)
-                        else:
-                            _LOGGER.debug('scan_keypads : error reading temperature, '\
-                                          + str(number))
-            node_index = 1
-            while (node_index) and (node_index < 17):
-                if self.KEYPADS[node_index].included is True:
-                    node_index = self.get_description(Event.DESCRIPTION_KEYPAD_NAME, node_index)
-                else:
-                    node_index = node_index +1
-        else:
-            return False
+        for node_index in range(0, KEYPAD_MAX_COUNT):
+            if self.KEYPADS[node_index].included is True:
+                event = Event()
+                event.type = Event.EVENT_KEYPAD_STATUS
+                event.data_str = format(self.KEYPADS[node_index].number, '02')
+                self.elk_event_send(event)
+                event = Event()
+                event.type = Event.EVENT_TEMP_REQUEST
+                event.data_str = '1' + format(self.KEYPADS[node_index].number, '02')
+                self.elk_event_send(event)
+        desc_index = 1
+        while (desc_index) and (desc_index <= KEYPAD_MAX_COUNT):
+            if self.KEYPADS[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_KEYPAD_NAME, desc_index)
+            else:
+                desc_index = desc_index + 1
 
     def scan_thermostats(self):
         """Scan all Thermostats and their information."""
-        for node_index in range(1, 17):
+        for node_index in range(0, THERMOSTAT_MAX_COUNT):
             if self.THERMOSTATS[node_index].included is True:
                 event = Event()
                 event.type = Event.EVENT_THERMOSTAT_DATA_REQUEST
-                event.data_str = format(node_index, '02')
+                event.data_str = format(self.THERMOSTATS[node_index].number, '02')
                 self.elk_event_send(event)
-                reply = self.elk_event_scan(Event.EVENT_THERMOSTAT_DATA_REPLY,
-                                            format(node_index, '02'))
-                if reply:
-                    _LOGGER.debug('scan_thermostats : got Event.EVENT_THERMOSTAT_DATA_REPLY')
-                    self.THERMOSTATS[node_index].unpack_event_thermostat_data_reply(reply)
-        node_index = 1
-        while (node_index) and (node_index < 17):
-            if self.THERMOSTATS[node_index].included is True:
-                node_index = self.get_description(Event.DESCRIPTION_THERMOSTAT_NAME, node_index)
+        desc_index = 1
+        while (desc_index) and (desc_index <= THERMOSTAT_MAX_COUNT):
+            if self.THERMOSTATS[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_THERMOSTAT_NAME, desc_index)
             else:
-                node_index = node_index + 1
+                desc_index = desc_index + 1
 
     def scan_x10(self):
         """Scan all X10 devices and their information."""
         for node_index_group in range(0, 4):
-            # TODO: Skip queries if all devices in block are excluded
+            group_base = node_index_group * 64
+            group_excluded = True
+            for node_index in range(group_base, group_base+64):
+                if self.X10[node_index].included is True:
+                    group_excluded = False
+            if group_excluded is True:
+                continue
             event = Event()
             event.type = Event.EVENT_PLC_STATUS_REQUEST
             event.data_str = format(node_index_group, '01')
             self.elk_event_send(event)
-            reply = self.elk_event_scan(Event.EVENT_PLC_STATUS_REPLY,
-                                        format(node_index_group, '01'))
-            if reply:
-                _LOGGER.debug('scan_x10 : got Event.EVENT_PLC_STATUS_REPLY')
-                for node_index in range(node_index_group+1, node_index_group+17):
-                    self.X10[node_index].unpack_event_plc_status_reply(reply)
-        node_index = 1
-        while (node_index) and (node_index < 257):
-            if self.X10[node_index].included is True:
-                node_index = self.get_description(Event.DESCRIPTION_LIGHT_NAME, node_index)
+
+        desc_index = 1
+        while (desc_index) and (desc_index <= X10_MAX_COUNT):
+            if self.X10[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_LIGHT_NAME, desc_index)
             else:
-                node_index = node_index + 1
+                desc_index = desc_index + 1
 
     def scan_tasks(self):
         """Scan all Tasks and their information."""
-        node_index = 1
-        while (node_index) and (node_index < 33):
-            if self.TASKS[node_index].included is True:
-                node_index = self.get_description(Event.DESCRIPTION_TASK_NAME, node_index)
+        desc_index = 1
+        while (desc_index) and (desc_index <= TASK_MAX_COUNT):
+            if self.TASKS[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_TASK_NAME, desc_index)
             else:
-                node_index = node_index + 1
+                desc_index = desc_index + 1
+
+    def scan_users(self):
+        """Scan all Users and their information."""
+        desc_index = 1
+        while (desc_index) and (desc_index <= USER_MAX_COUNT):
+            if self.USERS[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_USER_NAME, desc_index)
+            else:
+                desc_index = desc_index + 1
+
+    def scan_counters(self):
+        """Scan all Counters and their information."""
+        for node_index in range(0, COUNTER_MAX_COUNT):
+            if self.COUNTERS[node_index].included is True:
+                event = Event()
+                event.type = Event.EVENT_COUNTER_READ
+                event.data_str = format(self.COUNTERS[node_index].number, '02')
+                self.elk_event_send(event)
+        desc_index = 1
+        while (desc_index) and (desc_index <= COUNTER_MAX_COUNT):
+            if self.COUNTERS[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_COUNTER_NAME, desc_index)
+            else:
+                desc_index = desc_index + 1
+
+    def scan_settings(self):
+        """Scan all Settings and their information."""
+        event = Event()
+        event.type = Event.EVENT_VALUE_READ_ALL
+        self.elk_event_send(event)
+        desc_index = 1
+        while (desc_index) and (desc_index <= SETTING_MAX_COUNT):
+            if self.SETTINGS[desc_index-1].included is True:
+                desc_index = self.get_description(Event.DESCRIPTION_CUSTOM_SETTING_NAME, desc_index)
+            else:
+                desc_index = desc_index + 1
 
     def get_description(self, description_type, number):
         """Request string description from Elk.
@@ -772,25 +891,33 @@ class Elk(object):
             _LOGGER.debug('get_description : got Event.EVENT_DESCRIPTION_REPLY')
             reply.dump()
             reply_type = int(reply.data_str[:2])
-            replynumber = int(reply.data_str[2:5])
+            reply_number = int(reply.data_str[2:5])
             reply_name = reply.data_str[5:21]
-            if replynumber >= number:
+            if reply_number >= number:
+                node_index = reply_number - 1
                 if reply_type == Event.DESCRIPTION_ZONE_NAME:
-                    self.ZONES[replynumber].description = reply_name.strip()
+                    self.ZONES[node_index].description = reply_name.strip()
                 elif reply_type == Event.DESCRIPTION_OUTPUT_NAME:
-                    self.OUTPUTS[replynumber].description = reply_name.strip()
+                    self.OUTPUTS[node_index].description = reply_name.strip()
                 elif reply_type == Event.DESCRIPTION_AREA_NAME:
-                    self.AREAS[replynumber].description = reply_name.strip()
+                    self.AREAS[node_index].description = reply_name.strip()
                 elif reply_type == Event.DESCRIPTION_KEYPAD_NAME:
-                    self.KEYPADS[replynumber].description = reply_name.strip()
+                    self.KEYPADS[node_index].description = reply_name.strip()
                 elif reply_type == Event.DESCRIPTION_LIGHT_NAME:
-                    self.X10[replynumber].description = reply_name.strip()
+                    self.X10[node_index].description = reply_name.strip()
                 elif reply_type == Event.DESCRIPTION_TASK_NAME:
-                    self.TASKS[replynumber].description = reply_name.strip()
-                return replynumber+1
+                    self.TASKS[node_index].description = reply_name.strip()
+                elif reply_type == Event.DESCRIPTION_USER_NAME:
+                    self.USERS[node_index].description = reply_name.strip()
+                elif reply_type == Event.DESCRIPTION_COUNTER_NAME:
+                    self.COUNTERS[node_index].description = reply_name.strip()
+                elif reply_type == Event.DESCRIPTION_CUSTOM_SETTING_NAME:
+                    self.SETTINGS[node_index].description = reply_name.strip()
+                return reply_number+1
         return False
 
-    def _list_from_ranges(self, data):
+    @staticmethod
+    def _list_from_ranges(data):
         """Converts a list of ranges to a list
 
         d can be a list of values or single value,
@@ -808,17 +935,25 @@ class Elk(object):
                     x10_start, x10_end = int(range_start), int(range_end)
                 else:
                     # X10 device ranges, presumably
-                    x10 = X10(self)
-                    x10_start = x10.housecode_to_int(range_start)
-                    x10_end = x10.housecode_to_int(range_end)
-                    if (x10_start is None) or (x10_end is None):
+                    range_start = X10.housecode_to_int(range_start)
+                    range_end = X10.housecode_to_int(range_end)
+                    if (range_start is None) or (range_end is None):
                         continue
+                range_start = range_start - 1
+                range_end = range_end - 1
                 result.extend(list(range(x10_start, x10_end + 1)))
             else:
-                range_start = int(ranges)
+                range_start = None
+                if ranges.is_digit():
+                    range_start = int(ranges)
+                else:
+                    range_start = X10.housecode_to_int(ranges)
+                range_start = range_start - 1
                 result.append(range_start)
         return result
 
 class NullHandler(logging.Handler):
+    """Null logging handler."""
     def emit(self, record):
+        """pass all."""
         pass

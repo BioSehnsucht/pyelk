@@ -1,15 +1,18 @@
+"""Elk Thermostat."""
 from collections import namedtuple
 from collections import deque
 import logging
 import time
 import traceback
 
+from ..Const import *
 from ..Node import Node
 from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
 class Thermostat(Node):
+    """Represents a Thermostat in the Elk."""
     MODE_OFF = 0
     MODE_HEAT = 1
     MODE_COOL = 2
@@ -70,26 +73,32 @@ class Thermostat(Node):
 
     @property
     def mode(self):
+        """Return the current mode of thermostat."""
         return self._mode
 
     @property
     def fan(self):
+        """Return the current fan setting of thermostat."""
         return self._fan
 
     @property
     def temp(self):
+        """Return the current temperature reported by thermostat."""
         return self._temp
 
     @property
     def humidity(self):
+        """Return the current humidity reported by thermostat."""
         return self._humidity
 
     @property
     def setpoint_cool(self):
+        """Return the current cooling setpoint."""
         return self._setpoint_cool
 
     @property
     def setpoint_heat(self):
+        """Return the current heating setpoint."""
         return self._setpoint_heat
 
     def mode_pretty(self):
@@ -128,15 +137,19 @@ class Thermostat(Node):
         self._pyelk.elk_event_send(event)
 
     def set_mode(self, value):
+        """Set the thermostat operation mode."""
         self._set_thermostat(self.SET_MODE, value)
 
     def set_hold(self, value):
+        """Set the thermostat hold setting."""
         self._set_thermostat(self.SET_HOLD, value)
 
     def set_fan(self, value):
+        """Set the thermostat fan setting."""
         self._set_thermostat(self.SET_FAN, value)
 
     def set_setpoint_cool(self, value):
+        """Set the thermostat cool setpoint."""
         if value < 1:
             value = 1
         elif value > 99:
@@ -144,6 +157,7 @@ class Thermostat(Node):
         self._set_thermostat(self.SET_SETPOINT_COOL, value)
 
     def set_setpoint_heat(self, value):
+        """Set the thermostat heat setpoint."""
         if value < 1:
             value = 1
         elif value > 99:
@@ -151,6 +165,7 @@ class Thermostat(Node):
         self._set_thermostat(self.SET_SETPOINT_HEAT, value)
 
     def request_temp(self):
+        """Request temperature update from thermostat."""
         self._set_thermostat(self.SET_GET_TEMP, 0)
 
     def unpack_event_temp_request_reply(self, event):

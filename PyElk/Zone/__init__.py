@@ -1,13 +1,19 @@
+"""Elk Zone."""
 from collections import namedtuple
 from collections import deque
 import logging
 import time
 import traceback
+
+from ..Const import *
 from ..Node import Node
+from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
 class Zone(Node):
+    """Represents a Zone in the Elk."""
+
     # Possible (input) States for a Zone
     STATE_UNCONFIGURED = 0
     STATE_OPEN = 1
@@ -191,30 +197,37 @@ class Zone(Node):
 
     @property
     def temp(self):
+        """Return temperature."""
         return self._temp
 
     @property
     def definition(self):
+        """Return zone definition."""
         return self._definition
 
     @definition.setter
     def definition(self, value):
+        """Set zone definition."""
         self._definition = value
 
     @property
     def state(self):
+        """Return zone state."""
         return self._state
 
     @state.setter
     def state(self, value):
+        """Set zone state."""
         self._state = value
 
     @property
     def alarm(self):
+        """Return alarm state."""
         return self._alarm
 
     @alarm.setter
     def alarm(self, value):
+        """Set alarm state."""
         self._alarm = value
 
     def description_pretty(self, prefix='Zone '):
@@ -246,7 +259,7 @@ class Zone(Node):
         Event data format: Z[208]
         Z[208]: Array of 208 bytes showing alarm by zone
         """
-        data = event.data_dehex(True)[self._number-1]
+        data = event.data_dehex(True)[self._index]
         if self._alarm == data:
             return
         self._alarm = data
@@ -259,7 +272,7 @@ class Zone(Node):
         Event data format: D[208]
         D[208]: Array of all 208 zones with the zone definition
         """
-        data = event.data_dehex(True)[self._number-1]
+        data = event.data_dehex(True)[self._index]
         if self._definition == data:
             return
         self._definition = data
@@ -277,12 +290,13 @@ class Zone(Node):
         Event data format: D[208]
         D[208]: Array of all 208 zones with the partition for each zone
         """
-        data = event.data_dehex(True)[self._number-1]
+        data = event.data_dehex(True)[self._index]
         self._area = data
-        for node_index in range(1, 9):
-            self._pyelk.AREAS[node_index].member_zone[self._number] = False
+        self._area_index = self._area - 1
+        for node_index in range(0, AREA_MAX_COUNT):
+            self._pyelk.AREAS[node_index].member_zone[self._index] = False
         if self._area > 0:
-            self._pyelk.AREAS[self._area].member_zone[self._number] = True
+            self._pyelk.AREAS[self._area_index].member_zone[self._index] = True
         self._updated_at = event.time
         self._callback()
 
@@ -306,7 +320,7 @@ class Zone(Node):
         Event data format: D[208]
         D[208]: Array of all 208 zones with status as hexadecimal value
         """
-        data = int(event.data_dehex()[self._number-1])
+        data = int(event.data_dehex()[self._index])
         state = data & 0b11
         status = (data & 0b1100) >> 2
         if (self._state == state) and (self._status == status):

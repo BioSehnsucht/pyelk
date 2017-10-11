@@ -1,15 +1,19 @@
+"""Elk Area."""
 from collections import namedtuple
 from collections import deque
 import logging
 import time
 import traceback
 
+from ..Const import *
 from ..Node import Node
 from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
 class Area(Node):
+    """Represents an Area in the Elk."""
+
     STATUS_DISARMED = 0
     STATUS_ARMED_AWAY = 1
     STATUS_ARMED_STAY = 2
@@ -17,6 +21,10 @@ class Area(Node):
     STATUS_ARMED_NIGHT = 4
     STATUS_ARMED_NIGHT_INSTANT = 5
     STATUS_ARMED_VACATION = 6
+    STATUS_ALARM_PENDING = 7
+    STATUS_ALARM_TRIGGERED = 8
+    STATUS_TIMER_ENTRY = 9
+    STATUS_TIMER_EXIT = 10
 
     STATUS_STR = {
         STATUS_DISARMED : 'Disarmed',
@@ -25,7 +33,11 @@ class Area(Node):
         STATUS_ARMED_STAY_INSTANT : 'Armed Stay Instant',
         STATUS_ARMED_NIGHT : 'Armed to Night',
         STATUS_ARMED_NIGHT_INSTANT : 'Armed to Night Instant',
-        STATUS_ARMED_VACATION : 'Armed to Vacation'
+        STATUS_ARMED_VACATION : 'Armed to Vacation',
+        STATUS_ALARM_PENDING : 'Alarm Pending',
+        STATUS_ALARM_TRIGGERED : 'Alarm Triggered',
+        STATUS_TIMER_ENTRY : 'Entry Timer Running',
+        STATUS_TIMER_EXIT : 'Exit Timer Running',
     }
 
     ARM_DISARM = 0
@@ -129,14 +141,16 @@ class Area(Node):
         # Let Node initialize common things
         super().__init__(pyelk, number)
         # Initialize Area specific things
-        self._last_user_code = 0
+        self._last_user_num = 0
         self._last_user_at = 0
-        self._last_disarmed_by_user = 0
+        self._last_user_name = 'N/A'
         self._last_disarmed_at = 0
-        self._last_armed_by_user = 0
         self._last_armed_at = 0
+        self._last_keypad_num = 0
+        self._last_keypad_name = ''
         self._arm_up = 0
         self._alarm = 0
+        self._alarm_memory = False
         self._chime_mode = 0
         self._timer_entrance_1 = 0
         self._timer_entrance_2 = 0
@@ -144,9 +158,9 @@ class Area(Node):
         self._timer_exit_2 = 0
         self._member_zone = []
         self._member_keypad = []
-        for node_index in range(0, 209):
+        for node_index in range(0, ZONE_MAX_COUNT):
             self._member_zone.append(False)
-        for node_index in range(0, 17):
+        for node_index in range(0, KEYPAD_MAX_COUNT):
             self._member_keypad.append(False)
 
     def description_pretty(self, prefix='Area '):
@@ -169,90 +183,127 @@ class Area(Node):
 
     @property
     def timers_active(self):
-        """True if any Entry / Exit timers are active."""
+        """Which if any Entry / Exit timers are active."""
         if self._timer_entrance_1 > 0:
-            return True
+            return self.STATUS_TIMER_ENTRY
         elif self._timer_entrance_2 > 0:
-            return True
+            return self.STATUS_TIMER_ENTRY
         elif self._timer_exit_1 > 0:
-            return True
+            return self.STATUS_TIMER_EXIT
         elif self._timer_exit_2 > 0:
-            return True
+            return self.STATUS_TIMER_EXIT
         return False
 
     @property
     def member_keypad(self):
+        """Returns list of keypads and whether they are a member of this Area."""
         return self._member_keypad
 
     @member_keypad.setter
     def member_keypad(self, value):
+        """Sets list of keypads and whether they are a member of this Area."""
         self._member_keypad = value
+
     @property
     def member_zone(self):
+        """Returns list of zones and whether they are a member of this Area."""
         return self._member_zone
 
     @member_zone.setter
     def member_zone(self, value):
+        """Sets list of zones and whether they are a member of this Area."""
         self._member_zone = value
 
     @property
-    def last_user_code(self):
-        return self._last_user_code
+    def last_user_num(self):
+        """Returns last user number."""
+        return self._last_user_num
 
-    @last_user_code.setter
-    def last_user_code(self, value):
-        self._last_user_code = value
+    @last_user_num.setter
+    def last_user_num(self, value):
+        """Sets last user number."""
+        self._last_user_num = value
 
     @property
     def last_user_at(self):
+        """Returns last user access at timestamp."""
         return self._last_user_at
 
     @last_user_at.setter
     def last_user_at(self, value):
+        """Sets last user access at timestemp."""
         self._last_user_at = value
 
     @property
-    def last_disarmed_at(self):
-        return self._last_disarmed_at
+    def last_user_name(self):
+        """Returns last user name."""
+        return self._last_user_name
+
+    @last_user_name.setter
+    def last_user_name(self, value):
+        """Sets last user name."""
+        self._last_user_name = value
 
     @property
-    def last_disarmed_by_user(self):
-        return self._last_disarmed_by_user
+    def last_disarmed_at(self):
+        """Returns last disarmed timestamp."""
+        return self._last_disarmed_at
+
+    @last_disarmed_at.setter
+    def last_disarmed_at(self, value):
+        """Sets last disarmed timestamp."""
+        self._last_disarmed_at = value
 
     @property
     def last_armed_at(self):
+        """Returns last armed timestamp."""
         return self._last_armed_at
 
-    @property
-    def last_armed_by_user(self):
-        return self._last_armed_by_user
+    @last_armed_at.setter
+    def last_armed_at(self, value):
+        """Sets last armed timestamp."""
+        self._last_armed_at = value
 
     @property
-    def updated_at(self):
-        return self._updated_at
+    def last_keypad_num(self):
+        """Returns last keypad number used in Area."""
+        return self._last_keypad_num
 
-    @updated_at.setter
-    def updated_at(self, value):
-        self._updated_at = value
-        self._callback()
+    @last_keypad_num.setter
+    def last_keypad_num(self, value):
+        """Sets last keypad number used in Area."""
+        self._last_keypad_num = value
+
+    @property
+    def last_keypad_name(self):
+        """Returns last keypad name used."""
+        return self._last_keypad_name
+
+    @last_keypad_name.setter
+    def last_keypad_name(self, value):
+        """Sets last keypad name used."""
+        self._last_keypad_name = value
 
     @property
     def chime_mode(self):
+        """Returns chime and beep state."""
         return self._chime_mode
 
     @chime_mode.setter
     def chime_mode(self, value):
+        """Sets chime and beep state."""
         self._chime_mode = value
 
     @property
     def arm_up(self):
+        """Returns "arm up" (readiness) status."""
         return self._arm_up
 
     @property
     def member_zones_count(self):
         """Number of Zones which are a member of this Area."""
         count = 0
-        for node_index in range(0, 209):
+        for node_index in range(0, ZONE_MAX_COUNT):
             if self._member_zone[node_index] is True:
                 count += 1
         return count
@@ -261,7 +312,7 @@ class Area(Node):
     def member_keypads_count(self):
         """Number of Keypads which are a member of this Area."""
         count = 0
-        for k in range(0, 17):
+        for k in range(0, KEYPAD_MAX_COUNT):
             if self._member_keypad[k] is True:
                 count += 1
         return count
@@ -330,9 +381,9 @@ class Area(Node):
         U[8]: Array of 8 area arm up state
         A[8]: Array of 8 area alarm state
         """
-        status = event.data_dehex()[self._number-1]
-        arm_up = event.data_dehex()[8+self._number-1]
-        alarm = event.data_dehex(True)[16+self._number-1]
+        status = event.data_dehex()[self._index]
+        arm_up = event.data_dehex()[8+self._index]
+        alarm = event.data_dehex(True)[16+self._index]
         if (self._status == status) and (self._arm_up == arm_up) and (self._alarm == alarm):
             return
         self._status = status
@@ -341,10 +392,8 @@ class Area(Node):
         if (event.time - self._last_user_at) < 1.0:
             if self._status == self.STATUS_DISARMED:
                 self._last_disarmed_at = event.time
-                self._last_disarmed_by_user = self._last_user_code
             else:
                 self._last_armed_at = event.time
-                self._last_armed_by_user = self._last_user_code
         self._arm_up = arm_up
         self._alarm = alarm
         self._updated_at = event.time
@@ -376,5 +425,19 @@ class Area(Node):
         else:
             self._timer_exit_1 = timer_1
             self._timer_exit_2 = timer_2
+        self._updated_at = event.time
+        self._callback()
+
+    def unpack_event_alarm_memory(self, event):
+        """Unpack EVENT_ALARM_MEMORY.
+
+        Event data format: SSSSSSS
+        S[8]: Alarm memory for each of 8 Areas, 0 if no memory, 1 if memory
+        """
+        data = event.data_str[self._index]
+        if data == '1':
+            self._alarm_memory = True
+        else:
+            self._alarm_memory = False
         self._updated_at = event.time
         self._callback()

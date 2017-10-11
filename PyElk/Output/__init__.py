@@ -1,15 +1,19 @@
+"""Elk Output."""
 from collections import namedtuple
 from collections import deque
 import logging
 import time
 import traceback
 
+from ..Const import *
 from ..Node import Node
 from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
 class Output(Node):
+    """Represents an Output in the Elk."""
+
     STATUS_OFF = 0
     STATUS_ON = 1
 
@@ -92,7 +96,7 @@ class Output(Node):
         D[208]: 208 byte ASCII array of output status,
         '0' is off, '1' is on
         """
-        data = event.data_dehex()[self._number-1]
+        data = event.data_dehex()[self._index]
         if self._status == data:
             return
         self._status = data

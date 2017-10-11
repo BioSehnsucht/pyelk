@@ -1,15 +1,18 @@
+"""Elk Task."""
 from collections import namedtuple
 from collections import deque
 import logging
 import time
 import traceback
 
+from ..Const import *
 from ..Node import Node
 from ..Event import Event
 
 _LOGGER = logging.getLogger(__name__)
 
 class Task(Node):
+    """Represents a Task in the Elk."""
     STATUS_OFF = 0
     STATUS_ON = 1
 
@@ -32,6 +35,7 @@ class Task(Node):
 
     @property
     def last_activated(self):
+        """Return the last activation timestamp."""
         return self._last_activated
 
     def description_pretty(self, prefix='Task '):
@@ -61,7 +65,7 @@ class Task(Node):
         _LOGGER.debug('Task Last Activated: {}\n'.format(repr(self._last_activated)))
         _LOGGER.debug('Task Description: {}\n'.format(repr(self.description_pretty())))
 
-    def unpack_event_task_update(self, event: Event):
+    def unpack_event_task_update(self, event):
         """Unpack EVENT_TASK_UPDATE.
 
         Event data format: RRR0

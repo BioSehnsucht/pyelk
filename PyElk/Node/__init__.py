@@ -1,3 +1,4 @@
+"""Elk Node."""
 from collections import namedtuple
 from collections import deque
 import logging
@@ -7,6 +8,7 @@ import traceback
 _LOGGER = logging.getLogger(__name__)
 
 class Node(object):
+    """Base object for other Elk object types."""
     STATUS_STR = {}
 
     def __init__(self, pyelk=None, number=None):
@@ -15,10 +17,14 @@ class Node(object):
         pyelk: Pyelk.Elk object that this object is for (default None).
         number: Index number of this object (default None).
         """
-        # Area the object is assocaited with
+        # Area the object is assocaited with (1-based)
         self._area = None
-        # Index number of this object
-        self._number = number
+        # Area (0-based)
+        self._area_index = None
+        # Index number of this object (0-based)
+        self._index = number
+        # Index number of this object (1-based)
+        self._number = self._index + 1
         # Device enabled ?
         self._enabled = True
         # Device included (true) /excluded (false) ?
@@ -36,51 +42,75 @@ class Node(object):
 
     @property
     def area(self):
+        """Returns Area this node is associated with."""
         return self._area
 
     @area.setter
     def area(self, value):
+        """Sets Area this node is associated with."""
         self._area = value
+        self._area_index = self._area-1
 
     @property
     def number(self):
+        """Returns node number (1-based) of this node."""
         return self._number
 
     @number.setter
     def number(self, value):
+        """Sets node number (1-based) of this node."""
         self._number = value
+        self._index = self._number - 1
 
     @property
     def enabled(self):
+        """Returns whether this node is enabled."""
         return self._enabled
 
     @enabled.setter
     def enabled(self, value):
+        """Sets the enabled state of this node."""
         self._enabled = value
 
     @property
     def included(self):
+        """Returns whether this node is included."""
         return self._included
 
     @included.setter
     def included(self, value):
+        """Sets the included state of this node."""
         self._included = value
 
     @property
     def description(self):
+        """Returns the description of this node."""
         return self._description
 
     @description.setter
     def description(self, value):
+        """Returns the description of this node, prettified if possible."""
         self._description = value
 
     @property
     def status(self):
+        """Returns status of this node."""
         return self._status
 
     @status.setter
     def status(self, value):
+        """Sets status of this node."""
         self._status = value
+
+    @property
+    def updated_at(self):
+        """Returns last updated timestamp."""
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, value):
+        """Sets last updated timestamp."""
+        self._updated_at = value
 
     def callback_add(self, method):
         """Add a method to list of callbacks to be called on update."""
@@ -119,3 +149,7 @@ class Node(object):
         """Perform update callback, if possible."""
         for callback in self._update_callbacks:
             callback()
+
+    def callback_trigger(self):
+        """Trigger a callback."""
+        self._callback()
