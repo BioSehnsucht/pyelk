@@ -930,28 +930,31 @@ class Elk(object):
             data = [data]
         result = []
         for ranges in data:
+            num_start = 0
+            num_end = 0
             if '-' in ranges:
-                range_start, range_end = ranges.split('-')
-                if (range_start.isdigit()) and (range_end.isdigit()):
+                split_start, split_end = ranges.split('-')
+                if (split_start.isdigit()) and (split_end.isdigit()):
                     # Regular numeric ranges
-                    x10_start, x10_end = int(range_start), int(range_end)
+                    num_start, num_end = int(split_start), int(split_end)
                 else:
                     # X10 device ranges, presumably
-                    range_start = X10.housecode_to_int(range_start)
-                    range_end = X10.housecode_to_int(range_end)
-                    if (range_start is None) or (range_end is None):
+                    num_start = X10.housecode_to_int(split_start)
+                    num_end = X10.housecode_to_int(split_end)
+                    if (num_start is None) or (num_end is None):
                         continue
-                range_start = range_start - 1
-                range_end = range_end - 1
-                result.extend(list(range(x10_start, x10_end + 1)))
+                range_start = num_start - 1
+                range_end = num_end - 1
+                result.extend(list(range(range_start, range_end + 1)))
             else:
                 range_start = None
+                num_start = 0
                 if ranges.is_digit():
-                    range_start = int(ranges)
+                    num_start = int(ranges)
                 else:
-                    range_start = X10.housecode_to_int(ranges)
-                range_start = range_start - 1
-                result.append(range_start)
+                    num_start = X10.housecode_to_int(ranges)
+                range_start = num_start - 1
+                result.append(num_start)
         return result
 
 class NullHandler(logging.Handler):
