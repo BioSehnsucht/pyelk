@@ -913,6 +913,8 @@ class Elk(object):
                     self.COUNTERS[node_index].description = reply_name.strip()
                 elif reply_type == Event.DESCRIPTION_CUSTOM_SETTING_NAME:
                     self.SETTINGS[node_index].description = reply_name.strip()
+                elif reply_type == Event.DESCRIPTION_THERMOSTAT_NAME:
+                    self.THERMOSTATS[node_index].description = reply_name.strip()
                 return reply_number+1
         return False
 
