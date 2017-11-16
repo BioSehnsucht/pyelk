@@ -936,6 +936,8 @@ class Elk(object):
             data = [data]
         result = []
         for ranges in data:
+            if (isinstance(ranges, int)):
+                ranges = str(ranges)
             num_start = 0
             num_end = 0
             if '-' in ranges:
@@ -955,7 +957,7 @@ class Elk(object):
             else:
                 range_start = None
                 num_start = 0
-                if ranges.is_digit():
+                if ranges.isdigit():
                     num_start = int(ranges)
                 else:
                     num_start = X10.housecode_to_int(ranges)
