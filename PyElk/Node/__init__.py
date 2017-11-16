@@ -147,8 +147,10 @@ class Node(object):
 
     def _callback(self):
         """Perform update callback, if possible."""
-        for callback in self._update_callbacks:
-            callback()
+        if self.description is not None:
+            # Don't attempt callbacks if we haven't been set up
+            for callback in self._update_callbacks:
+                callback()
 
     def callback_trigger(self):
         """Trigger a callback."""

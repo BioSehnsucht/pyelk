@@ -266,15 +266,22 @@ class Event(object):
     def parse(self, data):
         """Parse event packet."""
         _LOGGER.debug('Parsing: {}\n'.format(repr(data)))
+        end_padding = 4
         self._len = data[:2]
         self._type = data[2:4]
+        # Some events don't have reserved data
+        if self._type == EVENT_ALARM_MEMORY:
+            end_padding = 2
         if len(data) > 8:
-            self._data_str = data[4:-4]
+            self._data_str = data[4:-end_padding]
             self._data = list(self._data_str)
         else:
             self._data_str = ''
             self._data = []
-        self._reserved = data[-4:-2]
+        if (end_padding > 2):
+            self._reserved = data[-end_padding:-2]
+        else:
+            self._reserved = ''
         self._checksum = data[-2:]
 
     def to_string(self):

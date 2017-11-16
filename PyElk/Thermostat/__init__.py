@@ -202,7 +202,9 @@ class Thermostat(Node):
         self._setpoint_heat = int(event.data_str[7:9])
         self._setpoint_cool = int(event.data_str[9:11])
         self._humidity = int(event.data_str[11:13])
-        if self._temp == 0:
+        if self._temp <= 0:
             self._enabled = False
+        else:
+            self._enabled = True
         self._updated_at = event.time
         self._callback()
