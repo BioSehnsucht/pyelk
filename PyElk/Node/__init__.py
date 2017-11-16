@@ -91,6 +91,7 @@ class Node(object):
     def description(self, value):
         """Returns the description of this node, prettified if possible."""
         self._description = value
+        self._callback()
 
     @property
     def status(self):

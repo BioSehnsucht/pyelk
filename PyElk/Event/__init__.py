@@ -270,7 +270,7 @@ class Event(object):
         self._len = data[:2]
         self._type = data[2:4]
         # Some events don't have reserved data
-        if self._type == EVENT_ALARM_MEMORY:
+        if self._type == Event.EVENT_ALARM_MEMORY:
             end_padding = 2
         if len(data) > 8:
             self._data_str = data[4:-end_padding]
