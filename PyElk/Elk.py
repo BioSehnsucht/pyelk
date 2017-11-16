@@ -423,7 +423,7 @@ class Elk(object):
         """
         endtime = time.time() + timeout
         event = None
-        if (not isinstance('list', data_match)) and (data_match is not None):
+        if (data_match is not None) and (not isinstance('list', data_match)):
             data_match = [data_match]
         while time.time() <= endtime:
             for elem in list(self._queue_incoming_elk_events):
@@ -516,38 +516,44 @@ class Elk(object):
                     elif event.type == Event.EVENT_ENTRY_EXIT_TIMER:
                         # Entry/Exit timer started or updated
                         areanumber = int(event.data[0])
+                        node_index = areanumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ENTRY_EXIT_TIMER')
-                        self.AREAS[areanumber].unpack_event_entry_exit_timer(event)
+                        self.AREAS[node_index].unpack_event_entry_exit_timer(event)
                         continue
                     elif event.type == Event.EVENT_USER_CODE_ENTERED:
                         # User code entered
                         _LOGGER.debug('elk_queue_process - Event.EVENT_USER_CODE_ENTERED')
                         keypadnumber = int(event.data_str[15:17])
-                        self.KEYPADS[keypadnumber].unpack_event_user_code_entered(event)
+                        node_index = keypadnumber - 1
+                        self.KEYPADS[node_index].unpack_event_user_code_entered(event)
                         continue
                     elif event.type == Event.EVENT_TASK_UPDATE:
                         # Task activated
                         tasknumber = int(event.data_str[:3])
+                        node_index = tasknumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_TASK_UPDATE')
-                        self.TASKS[tasknumber].unpack_event_task_update(event)
+                        self.TASKS[node_index].unpack_event_task_update(event)
                         continue
                     elif event.type == Event.EVENT_OUTPUT_UPDATE:
                         # Output changed state
                         outputnumber = int(event.data_str[:3])
+                        node_index = outputnumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_OUTPUT_UPDATE')
-                        self.OUTPUTS[outputnumber].unpack_event_output_update(event)
+                        self.OUTPUTS[node_index].unpack_event_output_update(event)
                         continue
                     elif event.type == Event.EVENT_ZONE_UPDATE:
                         # Zone changed state
                         zonenumber = int(event.data_str[:3])
+                        node_index = zonenumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ZONE_UPDATE')
-                        self.ZONES[zonenumber].unpack_event_zone_update(event)
+                        self.ZONES[node_index].unpack_event_zone_update(event)
                         continue
                     elif event.type == Event.EVENT_KEYPAD_STATUS_REPORT:
                         # Keypad changed state
                         keypadnumber = int(event.data_str[:2])
+                        node_index = keypadnumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_KEYPAD_STATUS_REPORT')
-                        self.KEYPADS[keypadnumber].unpack_event_keypad_status_report(event)
+                        self.KEYPADS[node_index].unpack_event_keypad_status_report(event)
                         continue
                     elif event.type == Event.EVENT_ARMING_STATUS_REPORT:
                         # Alarm status changed

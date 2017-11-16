@@ -110,8 +110,8 @@ class Setting(Node):
         else:
             # only a single result
             offset = 2
-        raw_data = int(event.data_str[offset:offset+6])
-        data_format = int(event.data_str[offset+7])
+        raw_data = int(event.data_str[offset:offset+5])
+        data_format = int(event.data_str[offset+5])
         if data_format == self.FORMAT_NUMBER:
             data = raw_data
         elif data_format == self.FORMAT_TIMER:
