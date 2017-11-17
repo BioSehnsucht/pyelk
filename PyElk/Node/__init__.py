@@ -91,7 +91,6 @@ class Node(object):
     def description(self, value):
         """Returns the description of this node, prettified if possible."""
         self._description = value
-        self._callback()
 
     @property
     def status(self):
@@ -148,10 +147,8 @@ class Node(object):
 
     def _callback(self):
         """Perform update callback, if possible."""
-        if self.description is not None:
-            # Don't attempt callbacks if we haven't been set up
-            for callback in self._update_callbacks:
-                callback()
+        for callback in self._update_callbacks:
+            callback()
 
     def callback_trigger(self):
         """Trigger a callback."""
