@@ -53,6 +53,8 @@ class Event(object):
     EVENT_THERMOSTAT_DATA_REQUEST = 'tr' # Request Thermostat Data
     EVENT_THERMOSTAT_DATA_REPLY = 'TR' # Reply Thermostat Data
     EVENT_THERMOSTAT_SET = 'ts' # Set Thermostat Data
+    EVENT_OMNISTAT_DATA_REQUEST = 't2' # Request Omnistat 2 Data
+    EVENT_OMNISTAT_DATA_REPLY = 'T2' # Reply Omnistat 2 Data
 
     EVENT_SPEAK_WORD = 'sw' # Speak Word at Voice/Siren Output
     EVENT_SPEAK_PHRASE = 'sp' # Speak Phrase at Voice/Siren Output

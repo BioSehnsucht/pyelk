@@ -38,6 +38,7 @@ EVENT_LIST_AUTO_PROCESS = [
     Event.EVENT_INSTALLER_EXIT,
     Event.EVENT_KEYPAD_AREA_REPLY,
     Event.EVENT_KEYPAD_STATUS_REPORT,
+    Event.EVENT_OMNISTAT_DATA_REPLY,
     Event.EVENT_OUTPUT_STATUS_REPORT,
     Event.EVENT_OUTPUT_UPDATE,
     Event.EVENT_PLC_CHANGE_UPDATE,
@@ -668,6 +669,12 @@ class Elk(object):
                         _LOGGER.debug('elk_queue_process - got Event.EVENT_ZONE_STATUS_REPORT')
                         for node_index in range(0, ZONE_MAX_COUNT):
                             self.ZONES[node_index].unpack_event_zone_status_report(event)
+                        continue
+                    elif event.type == Event.EVENT_OMNISTAT_DATA_REPLY:
+                        # Omnistat 2 data reply
+                        _LOGGER.debug('elk_queue_process - got Event.EVENT_OMNISTAT_DATA_REPLY')
+                        for node_index in range(0, THERMOSTAT_MAX_COUNT):
+                            self.THERMOSTATS[node_index].unpack_event_omnistat_data_reply(event)
                         continue
         self._update_in_progress = False
 
