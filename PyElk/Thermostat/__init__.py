@@ -63,9 +63,9 @@ class Thermostat(Node):
         self._hold = None
         self._fan = None
         self._temp = -460
-        self._setpoint_heat = None
-        self._setpoint_cool = None
-        self._humidity = None
+        self._setpoint_heat = 0
+        self._setpoint_cool = 0
+        self._humidity = 0
 
     def description_pretty(self, prefix='Thermostat '):
         """Thermostat description, as text string (auto-generated if not set)."""
@@ -198,11 +198,21 @@ class Thermostat(Node):
         self._mode = int(event.data_str[2:3])
         self._hold = int(event.data_str[3:4])
         self._fan = int(event.data_str[4:5])
-        self._temp = int(event.data_str[5:7])
+        temp = int(event.data_str[5:7])
+        # Sometimes temp reports zero incorrectly, ignore it
+        if temp > 0:
+            self._temp = temp
         self._setpoint_heat = int(event.data_str[7:9])
         self._setpoint_cool = int(event.data_str[9:11])
-        self._humidity = int(event.data_str[11:13])
-        if self._temp <= 0:
+        humidity = int(event.data_str[11:13])
+        # Sometimes humitity reports zero incorrectly, ignore it
+        if humidity > 0:
+            self._humidity = humidity
+        # Sometimes temp/humidity are reported as zero, even though
+        # the thermostat is present and "working"
+        # Only indicate not detected if setpoints are zero too
+        if ((self._temp <= 0) and (self._setpoint_cool <= 0) and
+            (self._setpoint_heat <= 0) and (self._humidity <= 0)):
             self._enabled = False
         else:
             self._enabled = True
