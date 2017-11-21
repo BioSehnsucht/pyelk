@@ -164,6 +164,8 @@ class Event(object):
         'LW' : EVENT_TEMP_ALL_REPLY,
         'st' : EVENT_TEMP_REQUEST,
         'ST' : EVENT_TEMP_REQUEST_REPLY,
+        't2' : EVENT_OMNISTAT_DATA_REQUEST,
+        'T2' : EVENT_OMNISTAT_DATA_REPLY,
         'sw' : EVENT_SPEAK_WORD,
         'sp' : EVENT_SPEAK_PHRASE,
         'tn' : EVENT_TASK_ACTIVATE,
@@ -349,3 +351,15 @@ class Event(object):
             if (not fake) and (ord(data[i]) > 9):
                 data[i] = str(ord(data[i]) - 7)
         return ''.join(data)
+
+    def delay(self, delay, now_relative=True):
+        """Helper to set event time for sending events with a delay.
+
+        delay: delay from 'now', or absolute Unix time to send after
+        now_relative: if True, delay is relative to 'now', otherwise it is
+            relative to Unix Epoch
+        """
+        if now_relative is not True:
+            self._time = delay
+        else:
+            self._time = time.time() + delay

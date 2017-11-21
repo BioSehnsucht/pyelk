@@ -5,9 +5,8 @@ from collections import deque
 import logging
 import time
 import traceback
-import threading
-import serial
-import serial.threaded
+
+from .Connection import Connection
 
 from .Const import *
 from .Area import Area
@@ -64,72 +63,6 @@ EVENT_LIST_RESCAN_BLACKLIST = [
     Event.EVENT_ZONE_STATUS_REPORT,
     ]
 
-
-class SerialInputHandler(serial.threaded.LineReader):
-    """LaneHandler implementation for serial.threaded."""
-
-    def set_pyelk(self, pyelk):
-        """Sets the pyelk instance to use."""
-        self._pyelk = pyelk
-
-    # Implement Protocol class functions for Threaded Serial
-    def connection_made(self, transport):
-        """Called when connection is made."""
-        _LOGGER.debug('Calling super connection_made')
-        super(SerialInputHandler, self).connection_made(transport)
-        _LOGGER.debug('Connected')
-
-    def handle_line(self, line):
-        """Validate event and add to incoming buffer."""
-        self._pyelk.elk_event_enqueue(line)
-        _LOGGER.debug('handle_line: ' + line)
-
-    def connection_lost(self, exc):
-        """Connection was lost."""
-        _LOGGER.debug('Lost connection')
-        self._pyelk._connection_output.stop()
-        if exc:
-            traceback.print_exc(exc)
-
-class SerialOutputHandler(object):
-    """SerialOutputHandler handles outputting events to serial.threaded via deque."""
-
-    def set_pyelk(self, pyelk):
-        """Sets the pyelk instance to use."""
-        self._pyelk = pyelk
-
-    def __init__(self, ratelimit=1):
-        """Setup output handler."""
-        self._pyelk = None
-        self._interval = 1.0 / ratelimit
-        self._stopping = False
-        self._event = threading.Event()
-        thread = threading.Thread(target=self.run, args=())
-        thread.start()
-
-    def stop(self):
-        """Stop thread."""
-        self._stopping = True
-
-    def pause(self):
-        """Pause thread."""
-        self._event.clear()
-
-    def resume(self):
-        """Resume thread."""
-        self._event.set()
-
-    def run(self):
-        """Thread that handles outputting queued events to the Elk."""
-        while not self._stopping:
-            self._event.wait()
-            self._event.clear()
-            _LOGGER.debug('woke up send queue : ' + str(len(self._pyelk._queue_outgoing_elk_events)))
-            for event in list(self._pyelk._queue_outgoing_elk_events):
-                self._pyelk.elk_event_send_actual(event)
-                self._pyelk._queue_outgoing_elk_events.remove(event)
-                time.sleep(self._interval)
-
 class Elk(object):
     """
     This is the main class that handles interaction with the Elk panel
@@ -164,20 +97,17 @@ class Elk(object):
         usercode: Alarm user code (not currently used, may be removed).
         log: Logger object to use.
         """
+        self._connection = None
         self._state = self.STATE_DISCONNECTED
         self._events = None
         self._reconnect_thread = None
         self._config = config
-        self._queue_incoming_elk_events = deque(maxlen=1000)
-        self._queue_outgoing_elk_events = deque(maxlen=1000)
+        self._queue_incoming_elk_events = None
+        self._queue_outgoing_elk_events = None
         self._queue_exported_events = deque(maxlen=1000)
         self._rescan_in_progress = False
         self._update_in_progress = False
-        self._elkrp_connected = False
         self._elk_versions = None
-        self._connection_protocol = None
-        self._connection_thread = None
-        self._connection_output = None
         self.AREAS = []
         self.COUNTERS = []
         self.KEYPADS = []
@@ -294,7 +224,8 @@ class Elk(object):
             ratelimit = 10
             if 'ratelimit' in self._config:
                 ratelimit = self._config['ratelimit']
-            self.connect(self._config['host'], ratelimit)
+            self._connection = Connection()
+            self._connection.connect(self, self._config['host'], ratelimit)
 
         except ValueError as exception_error:
             try:
@@ -302,38 +233,8 @@ class Elk(object):
             except AttributeError:
                 self.log.error(exception_error.args[0])
 
-        if self.connected:
+        if self._connection.connected:
             self._rescan()
-
-    def __del__(self):
-        """Shutdown communications."""
-        if self._connection_thread is not None:
-            self._connection_output.stop()
-            self._connection_output.close()
-            self._connection_thread.close()
-
-    @property
-    def connected(self):
-        """True if connected to Elk panel."""
-        if self._connection_thread:
-            return self._connection_thread.alive and self._connection_thread.serial.is_open
-        return False
-
-    def connect(self, address, ratelimit):
-        """Connect to the Elk panel.
-
-        address: Host to connect to in either
-        "socket://IP.Add.re.ss:Port" or "/dev/ttyUSB0" format.
-        ratelimit: rate limit for outgoing events
-        """
-        self._connection = serial.serial_for_url(address, timeout=1)
-        self._connection_thread = serial.threaded.ReaderThread(self._connection, SerialInputHandler)
-        self._connection_thread.start()
-        self._connection_transport, self._connection_protocol = self._connection_thread.connect()
-        self._connection_protocol.set_pyelk(self)
-        self._connection_output = SerialOutputHandler(ratelimit)
-        self._connection_output.set_pyelk(self)
-        _LOGGER.debug('ReaderThread created')
 
     def _rescan(self):
         """Rescan all things.
@@ -385,12 +286,12 @@ class Elk(object):
         event: Event to send to Elk.
         """
         event_str = event.to_string()
-        if self._elkrp_connected:
+        if self._connection._elkrp_connected:
             _LOGGER.debug('Discarding due to ElkRP: {}\n'.format(repr(event_str)))
         else:
             _LOGGER.debug('Queuing: {}\n'.format(repr(event_str)))
             self._queue_outgoing_elk_events.append(event)
-            self._connection_output.resume()
+            self._connection._connection_output.resume()
 
     def elk_event_send_actual(self, event):
         """Send an Elk event to the Elk.
@@ -399,7 +300,7 @@ class Elk(object):
         """
         event_str = event.to_string()
         _LOGGER.debug('Sending: {}\n'.format(repr(event_str)))
-        self._connection_protocol.write_line(event_str)
+        self._connection._connection_protocol.write_line(event_str)
 
     def elk_event_enqueue(self, data):
         """Add event to the incoming event deque.
@@ -411,24 +312,37 @@ class Elk(object):
         self._queue_incoming_elk_events.append(event)
         self.update()
 
-    def elk_event_scan(self, event_type, data_match=None, timeout=10):
+    def elk_event_scan(self, event_type, data_match=None, timeout=10,
+                       output_scan=False, reverse=False):
         """Scan the incoming event deque for specified event type.
 
-        event_type: Event type to look for.
+        event_type: Event type or types to look for.
         data_match: If set (either single string or list of strings),
         in addition to matching the event_type, we will also compare
         the event data (up to len(data_match)) and only return an
         event if at least one of the data_match matches the event.
         timeout: Time to wait for new events if none already in deque,
         default is 10 seconds.
+        output_scan: If true, we scan the output queue instead
+        reverse: If true, scan the queue in reverse order
         """
+        scan_queue = None
+        if output_scan:
+            scan_queue = self._queue_outgoing_elk_events
+        else:
+            scan_queue = self._queue_incoming_elk_events
+        reverse_flag = 1
+        if reverse:
+            reverse_flag = -1
         endtime = time.time() + timeout
+        if not isinstance(event_type, list):
+            event_type = [event_type]
         event = None
-        if (data_match is not None) and (not isinstance('list', data_match)):
+        if (data_match is not None) and (not isinstance(data_match, list)):
             data_match = [data_match]
         while time.time() <= endtime:
-            for elem in list(self._queue_incoming_elk_events):
-                if elem.type == event_type:
+            for elem in list(scan_queue)[::reverse_flag]:
+                if elem.type in event_type:
                     event = elem
                     matched = True
                     if data_match is not None:
@@ -439,8 +353,12 @@ class Elk(object):
                             if data_str == match_str:
                                 matched = True
                     if matched:
-                        self._queue_incoming_elk_events.remove(elem)
+                        if not output_scan:
+                            self._queue_incoming_elk_events.remove(elem)
                         return event
+            # For output scan, no point waiting for the future
+            if output_scan:
+                return False
 
         _LOGGER.debug('elk_event_scan : timeout')
         return False
@@ -486,17 +404,17 @@ class Elk(object):
                         # to rescan from RP event)
                         if rp_status == 0:
                             self._queue_outgoing_elk_events.clear()
-                            self._elkrp_connected = False
+                            self._connection._elkrp_connected = False
                         # Status 1: Elk RP connected, M1XEP poll reply, this
                         # occurs in response to commands sent while RP is
                         # connected
                         elif rp_status == 1:
-                            self._elkrp_connected = True
+                            self._connection._elkrp_connected = True
                         # Status 2: Elk RP connected, M1XEP poll reply during
                         # M1XEP powerup/reboot, this happens during RP
                         # disconnect sequence before it's completely disco'd
                         elif rp_status == 2:
-                            self._elkrp_connected = True
+                            self._connection._elkrp_connected = True
                         _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_ELKRP')
                         continue
                     elif event.type == Event.EVENT_ETHERNET_TEST:
@@ -806,10 +724,8 @@ class Elk(object):
         """Scan all Thermostats and their information."""
         for node_index in range(0, THERMOSTAT_MAX_COUNT):
             if self.THERMOSTATS[node_index].included is True:
-                event = Event()
-                event.type = Event.EVENT_THERMOSTAT_DATA_REQUEST
-                event.data_str = format(self.THERMOSTATS[node_index].number, '02')
-                self.elk_event_send(event)
+                self.THERMOSTATS[node_index].request_temp()
+                self.THERMOSTATS[node_index].detect_omni()
         desc_index = 1
         while (desc_index) and (desc_index <= THERMOSTAT_MAX_COUNT):
             if self.THERMOSTATS[desc_index-1].included is True:
