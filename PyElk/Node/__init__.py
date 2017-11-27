@@ -40,6 +40,31 @@ class Node(object):
         # Pyelk.Elk object that this object is for
         self._pyelk = pyelk
 
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        state = {}
+        state['area'] = self._area
+        state['enabled'] = self._enabled
+        state['included'] = self._included
+        state['status'] = self._status
+        state['description'] = self._description
+        return state
+
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        for state_key in state:
+            if state_key == 'area':
+                self.area = state['area']
+            elif state_key == 'enabled':
+                self.enabled = state['enabled']
+            elif state_key == 'included':
+                self.included = state['included']
+            elif state_key == 'status':
+                self.status = state['status']
+            elif state_key == 'description':
+                self.description = state['description']
+        return
+
     @property
     def area(self):
         """Returns Area this node is associated with."""
@@ -48,8 +73,9 @@ class Node(object):
     @area.setter
     def area(self, value):
         """Sets Area this node is associated with."""
-        self._area = value
-        self._area_index = self._area-1
+        if isinstance(value, int):
+            self._area = value
+            self._area_index = self._area-1
 
     @property
     def number(self):
@@ -59,8 +85,9 @@ class Node(object):
     @number.setter
     def number(self, value):
         """Sets node number (1-based) of this node."""
-        self._number = value
-        self._index = self._number - 1
+        if isinstance(value, int):
+            self._number = value
+            self._index = self._number - 1
 
     @property
     def enabled(self):
@@ -70,7 +97,8 @@ class Node(object):
     @enabled.setter
     def enabled(self, value):
         """Sets the enabled state of this node."""
-        self._enabled = value
+        if isinstance(value, bool):
+            self._enabled = value
 
     @property
     def included(self):
@@ -80,7 +108,8 @@ class Node(object):
     @included.setter
     def included(self, value):
         """Sets the included state of this node."""
-        self._included = value
+        if isinstance(value, bool):
+            self._included = value
 
     @property
     def description(self):
@@ -90,7 +119,8 @@ class Node(object):
     @description.setter
     def description(self, value):
         """Returns the description of this node, prettified if possible."""
-        self._description = value
+        if isinstance(value, str):
+            self._description = value
 
     @property
     def status(self):

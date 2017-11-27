@@ -5,6 +5,7 @@ from collections import deque
 import logging
 import time
 import traceback
+import json
 
 from .Connection import Connection
 
@@ -99,6 +100,8 @@ class Elk(object):
         """
         self._connection = None
         self._state = self.STATE_DISCONNECTED
+        self._state_fastload_enabled = True
+        self._state_fastload_file = 'PyElk-fastload.json'
         self._events = None
         self._reconnect_thread = None
         self._config = config
@@ -234,7 +237,114 @@ class Elk(object):
                 self.log.error(exception_error.args[0])
 
         if self._connection.connected:
+            if 'fastload' in self._config:
+                self._state_fastload_enabled = self._config['fastload']
+            if 'fastload_file' in self._config:
+                self._state_fastload_file = self._config['fastload_file']
+            if self._state_fastload_enabled:
+                self.state_load()
             self._rescan()
+
+    def state_save(self):
+        """Save current state to fast load state file."""
+        max_range = {
+            'zone': ZONE_MAX_COUNT,
+            'output' : OUTPUT_MAX_COUNT,
+            'area' : AREA_MAX_COUNT,
+            'keypad' : KEYPAD_MAX_COUNT,
+            'thermostat' : THERMOSTAT_MAX_COUNT,
+            'user' : USER_MAX_COUNT,
+            'x10' : X10_MAX_COUNT,
+            'task' : TASK_MAX_COUNT,
+            'counter' : COUNTER_MAX_COUNT,
+            'setting' : SETTING_MAX_COUNT,
+            }
+
+        range_order = {
+            0 : 'zone',
+            1 : 'output',
+            2 : 'area',
+            3 : 'keypad',
+            4 : 'thermostat',
+            5 : 'x10',
+            6 : 'task',
+            7 : 'user',
+            8 : 'counter',
+            9 : 'setting',
+            }
+
+        state_data = {}
+
+        for device_class_num in range_order:
+            device_class = range_order[device_class_num]
+            state_data[device_class] = []
+            for node_index in range(0, max_range[device_class]):
+                data = False
+                if device_class == 'zone':
+                    data = self.ZONES[node_index].state_save()
+                elif device_class == 'output':
+                    data = self.OUTPUTS[node_index].state_save()
+                elif device_class == 'area':
+                    data = self.AREAS[node_index].state_save()
+                elif device_class == 'keypad':
+                    data = self.KEYPADS[node_index].state_save()
+                elif device_class == 'thermostat':
+                    data = self.THERMOSTATS[node_index].state_save()
+                elif device_class == 'x10':
+                    data = self.X10[node_index].state_save()
+                elif device_class == 'task':
+                    data = self.TASKS[node_index].state_save()
+                elif device_class == 'user':
+                    data = self.USERS[node_index].state_save()
+                elif device_class == 'counter':
+                    data = self.COUNTERS[node_index].state_save()
+                elif device_class == 'setting':
+                    data = self.SETTINGS[node_index].state_save()
+                if data:
+                    state_data[device_class].append(data)
+
+        with open(self._state_fastload_file, 'w') as f:
+            json.dump(state_data, f)
+        return
+
+    def state_load(self):
+        """Load state from fast load state file."""
+
+        state_data = {}
+        try:
+            with open(self._state_fastload_file, 'r') as f:
+                state_data = json.load(f)
+        except ValueError:
+            _LOGGER.debug('Failed to load fast load file - value error')
+            return
+        except FileNotFoundError:
+            _LOGGER.debug('Failed to load fast load file - file not found')
+            return
+        else:
+            for device_class in state_data:
+                for node_index in range(0,len(state_data[device_class])):
+                    data = state_data[device_class][node_index]
+                    if device_class == 'zone':
+                        self.ZONES[node_index].state_load(data)
+                    elif device_class == 'output':
+                        self.OUTPUTS[node_index].state_load(data)
+                    elif device_class == 'area':
+                        self.AREAS[node_index].state_load(data)
+                    elif device_class == 'keypad':
+                        self.KEYPADS[node_index].state_load(data)
+                    elif device_class == 'thermostat':
+                        self.THERMOSTATS[node_index].state_load(data)
+                    elif device_class == 'x10':
+                        self.X10[node_index].state_load(data)
+                    elif device_class == 'task':
+                        self.TASKS[node_index].state_load(data)
+                    elif device_class == 'user':
+                        self.USERS[node_index].state_load(data)
+                    elif device_class == 'counter':
+                        self.COUNTERS[node_index].state_load(data)
+                    elif device_class == 'setting':
+                        self.SETTINGS[node_index].state_load(data)
+        return
 
     def _rescan(self):
         """Rescan all things.
@@ -245,29 +355,19 @@ class Elk(object):
         if self._rescan_in_progress is True:
             return
         self._rescan_in_progress = True
+        self.scan_zones()
+        self.scan_outputs()
+        self.scan_areas()
+        self.scan_keypads()
+        self.scan_tasks()
+        self.scan_thermostats()
+        self.scan_x10()
+        self.scan_users()
+        self.scan_counters()
+        self.scan_settings()
         event = Event()
         event.type = Event.EVENT_VERSION
         self.elk_event_send(event)
-        self._state = self.STATE_SCAN_ZONES
-        self.scan_zones()
-        self._state = self.STATE_SCAN_OUTPUTS
-        self.scan_outputs()
-        self._state = self.STATE_SCAN_AREAS
-        self.scan_areas()
-        self._state = self.STATE_SCAN_KEYPADS
-        self.scan_keypads()
-        self._state = self.STATE_SCAN_TASKS
-        self.scan_tasks()
-        self._state = self.STATE_SCAN_THERMOSTATS
-        self.scan_thermostats()
-        self._state = self.STATE_SCAN_X10
-        self.scan_x10()
-        self._state = self.STATE_SCAN_USERS
-        self.scan_users()
-        self._state = self.STATE_SCAN_COUNTERS
-        self.scan_counters()
-        self._state = self.STATE_SCAN_SETTINGS
-        self.scan_settings()
         self._rescan_in_progress = False
         self._state = self.STATE_RUNNING
 
@@ -525,6 +625,7 @@ class Elk(object):
                         # Version reply
                         _LOGGER.debug('elk_queue_process - Event.EVENT_VERSION_REPLY')
                         self.unpack_event_version_reply(event)
+                        self.state_save()
                         continue
                     elif event.type == Event.EVENT_COUNTER_REPLY:
                         # Counter reply

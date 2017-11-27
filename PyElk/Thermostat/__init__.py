@@ -268,13 +268,69 @@ class Thermostat(Node):
         self._setpoint_heat = 0
         self._setpoint_cool = 0
         self._humidity = 0
-        self._omni2 = None
+        self._omni = None
         self._temp_outside = -460
         self._temp_outside_c = -273
         self._temp_3 = -460
         self._temp_3_c = -273
         self._temp_4 = -460
         self._temp_4_c = -273
+
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        data = super().state_save()
+        data['mode'] = self._mode
+        data['hold'] = self._hold
+        data['fan'] = self._fan
+        data['temp'] = self._temp
+        data['temp_c'] = self._temp_c
+        data['setpoint_heat'] = self._setpoint_heat
+        data['setpoint_cool'] = self._setpoint_cool
+        data['humidity'] = self._humidity
+        data['omni'] = self._omni
+        data['temp_outside'] = self._temp_outside
+        data['temp_outside_c'] = self._temp_outside_c
+        data['temp_3'] = self._temp_3
+        data['temp_3_c'] = self._temp_3_c
+        data['temp_4'] = self._temp_4
+        data['temp_4_c'] = self._temp_4_c
+        return data
+
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        super().state_load(state)
+        for state_key in state:
+            if state_key == 'mode':
+                self._mode= state['mode']
+            elif state_key == 'hold':
+                self._hold = state['hold']
+            elif state_key == 'fan':
+                self._fan = state['fan']
+            elif state_key == 'temp':
+                self._temp = state['temp']
+            elif state_key == 'temp_c':
+                self._temp_c = state['temp_c']
+            elif state_key == 'setpoint_heat':
+                self._setpoint_heat = state['setpoint_heat']
+            elif state_key == 'setpoint_cool':
+                self._setpoint_cool = state['setpoint_cool']
+            elif state_key == 'humidity':
+                self._humidity = state['humidity']
+            elif state_key == 'omni':
+                self._omni = state['omni']
+            elif state_key == 'temp_outside':
+                self._temp_outside = state['temp_outside']
+            elif state_key == 'temp_outside_c':
+                self._temp_outside_c = state['temp_outside_c']
+            elif state_key == 'temp_3':
+                self._temp_3 = state['temp_3']
+            elif state_key == 'temp_3_c':
+                self._temp_3_c = state['temp_3_c']
+            elif state_key == 'temp_4':
+                self._temp_4 = state['temp_4']
+            elif state_key == 'temp_4_c':
+                self._temp_4_c = state['temp_4_c']
+        return
 
     def description_pretty(self, prefix='Thermostat '):
         """Thermostat description, as text string (auto-generated if not set)."""
@@ -410,7 +466,7 @@ class Thermostat(Node):
 
     def request_temp(self):
         """Request temperature update from thermostat."""
-        if self._omni2 is not True:
+        if self._omni is not True:
             self._set_thermostat(self.SET_GET_TEMP, 0)
         else:
             self.request_omni_register(Omni2Message.REG_STATUS_TEMPERATURE)
@@ -420,14 +476,14 @@ class Thermostat(Node):
 
     def request_humidity(self):
         """Request humidity update from thermostat."""
-        if self._omni2 is not True:
+        if self._omni is not True:
             self._set_thermostat(self.SET_GET_TEMP, 0)
         else:
             self.request_omni_register(Omni2Message.REG_SETUP_INDOOR_HUMIDITY)
 
     def detect_omni(self):
         """Detect if thermostat is Omnistat."""
-        if self._omni2 is not True:
+        if self._omni is not True:
             self.request_omni_register(Omni2Message.REG_STATUS_MODEL)
 
     def _temp_f_to_c(self, temp):
@@ -563,8 +619,8 @@ class Thermostat(Node):
         message.decode(event.data_str)
         if message.number != self._number:
             return
-        if self._omni2 is not True:
-            self._omni2 = True
+        if self._omni is not True:
+            self._omni = True
             self.request_temp()
             self.request_humidity()
         ## Group 2 appears to be returned as group 1?

@@ -101,7 +101,7 @@ class Connection():
         """Shutdown communications."""
         if self._connection_thread is not None:
             self._connection_output.stop()
-            self._connection_output.close()
+            #self._connection_output.close()
             self._connection_thread.close()
 
     @property
