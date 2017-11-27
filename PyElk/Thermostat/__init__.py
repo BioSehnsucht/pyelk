@@ -264,13 +264,17 @@ class Thermostat(Node):
         self._hold = None
         self._fan = None
         self._temp = -460
+        self._temp_c = -273
         self._setpoint_heat = 0
         self._setpoint_cool = 0
         self._humidity = 0
         self._omni2 = None
         self._temp_outside = -460
+        self._temp_outside_c = -273
         self._temp_3 = -460
+        self._temp_3_c = -273
         self._temp_4 = -460
+        self._temp_4_c = -273
 
     def description_pretty(self, prefix='Thermostat '):
         """Thermostat description, as text string (auto-generated if not set)."""
@@ -288,13 +292,48 @@ class Thermostat(Node):
 
     @property
     def temp(self):
-        """Return the current temperature reported by thermostat."""
+        """Return the current temperature reported by thermostat, in Fahrenheit."""
         return self._temp
 
     @property
     def humidity(self):
         """Return the current humidity reported by thermostat."""
         return self._humidity
+
+    @property
+    def temp_c(self):
+        """Return the current temperature reported by thermostat, in Celcius."""
+        return self._temp_c
+
+    @property
+    def temp_outside(self):
+        """Return outside temperature sensor, in Fahrenheit."""
+        return self._temp_outside
+
+    @property
+    def temp_outside_c(self):
+        """Return outside temperature sensor, in Celcius."""
+        return self._temp_outside_c
+
+    @property
+    def temp_3(self):
+        """Return temperature sensor 3, in Fahrenheit."""
+        return self._temp_3
+
+    @property
+    def temp_3_c(self):
+        """Return temperature sensor 3, in Celcius."""
+        return self._temp_3_c
+
+    @property
+    def temp_4(self):
+        """Return temperature sensor 4, in Fahrenheit."""
+        return self._temp_4
+
+    @property
+    def temp_4_c(self):
+        """Return temperature sensor 4, in Celcius."""
+        return self._temp_4_c
 
     @property
     def setpoint_cool(self):
@@ -391,10 +430,19 @@ class Thermostat(Node):
         if self._omni2 is not True:
             self.request_omni_register(Omni2Message.REG_STATUS_MODEL)
 
+    def _temp_f_to_c(self, temp):
+        """Convert F to C."""
+        return (temp - 32) / 1.8
+
+    def _temp_c_to_f(self, temp):
+        """Convert C to F."""
+        return (temp * 1.8) + 32
+
     def _temp_from_omnitemp(self, omnitemp):
-        """Convert Omnitemp to temp."""
+        """Convert Omnitemp to temp C, F."""
         temp_c = -40 + (0.5 * omnitemp)
-        return ((temp_c * 1.8) + 32)
+        temp_f = self._temp_c_to_f(temp_c)
+        return temp_c, temp_f
 
     def _get_last_omni_time(self):
         """Gets the last queued omni event time."""
@@ -460,8 +508,9 @@ class Thermostat(Node):
         """
         temp = int(event.data_str[3:6])
         temp = temp - 40
-        if temp > 0:
+        if temp > 0 and temp < 100:
             self._temp = data
+            self._temp_c = self._temp_f_to_c(self._temp)
             self._updated_at = event.time
             self._callback()
 
@@ -483,13 +532,14 @@ class Thermostat(Node):
         self._fan = int(event.data_str[4:5])
         temp = int(event.data_str[5:7])
         # Sometimes temp reports zero incorrectly, ignore it
-        if temp > 0:
+        if temp > 0 and temp < 100:
             self._temp = temp
+            self._temp_c = self._temp_f_to_c(self._temp)
         self._setpoint_heat = int(event.data_str[7:9])
         self._setpoint_cool = int(event.data_str[9:11])
         humidity = int(event.data_str[11:13])
-        # Sometimes humitity reports zero incorrectly, ignore it
-        if humidity > 0:
+        # Sometimes humidity reports zero incorrectly, ignore it
+        if humidity > 0 and temp < 100:
             self._humidity = humidity
         # Sometimes temp/humidity are reported as zero, even though
         # the thermostat is present and "working"
@@ -513,8 +563,11 @@ class Thermostat(Node):
         message.decode(event.data_str)
         if message.number != self._number:
             return
-        self._omni2 = True
-        ## Group 2 appaers to be returned as group 1?
+        if self._omni2 is not True:
+            self._omni2 = True
+            self.request_temp()
+            self.request_humidity()
+        ## Group 2 appears to be returned as group 1?
         ## Not using until I figure out what is going on here
         #if message.msg_type == message.RESP_GROUP_1:
         #    temp_c = -40 + (0.5 * message.data[5])
@@ -528,26 +581,24 @@ class Thermostat(Node):
             for reg in range(0,len(message.data)-1):
                 data = message.data[reg+1]
                 if (start_reg + reg) == message.REG_STATUS_MODEL:
-                    self.request_temp()
-                    self.request_humidity()
                     continue
                 if (start_reg + reg) == message.REG_SETUP_INDOOR_HUMIDITY:
                     self._humidity = message.data[reg+1]
                     continue
                 if (start_reg + reg) == message.REG_STATUS_TEMPERATURE:
                     if data > 0 and data < 255:
-                        self._temp = self._temp_from_omnitemp(data)
+                        self._temp_c, self._temp = self._temp_from_omnitemp(data)
                     continue
                 if (start_reg + reg) == message.REG_STATUS_OUTSIDE_TEMP:
                     if data > 0 and data < 255:
-                        self._temp_outside = self._temp_from_omnitemp(data)
+                        self._temp_outside_c, self._temp_outside = self._temp_from_omnitemp(data)
                     continue
                 if (start_reg + reg) == message.REG_SENSORS_CURRENT_TEMP_3:
                     if data > 0 and data < 255:
-                        self._temp_3 = self._temp_from_omnitemp(data)
+                        self._temp_3_c, self._temp_3 = self._temp_from_omnitemp(data)
                     continue
                 if (start_reg + reg) == message.REG_SENSORS_CURRENT_TEMP_4:
                     if data > 0 and data < 255:
-                        self._temp_4 = self._temp_from_omnitemp(data)
+                        self._temp_4_c, self._temp_4 = self._temp_from_omnitemp(data)
                     continue
         return
