@@ -6,6 +6,7 @@ import logging
 import time
 import traceback
 import json
+import threading
 
 from .Connection import Connection
 
@@ -64,6 +65,107 @@ EVENT_LIST_RESCAN_BLACKLIST = [
     Event.EVENT_ZONE_STATUS_REPORT,
     ]
 
+class Scanner(object):
+    """Scanner class handles rescanning of Elk system on a separate thread."""
+
+    STATE_SCAN_IDLE = 0
+    STATE_SCAN_START = 1
+    STATE_SCAN_AREAS = 10
+    STATE_SCAN_COUNTERS = 11
+    STATE_SCAN_KEYPADS = 12
+    STATE_SCAN_OUTPUTS = 13
+    STATE_SCAN_SETTINGS = 14
+    STATE_SCAN_TASKS = 15
+    STATE_SCAN_THERMOSTATS = 16
+    STATE_SCAN_USERS = 17
+    STATE_SCAN_X10 = 18
+    STATE_SCAN_ZONES = 19
+    STATE_SCAN_VERSION = 20
+
+    SCAN_NEXT = {
+        STATE_SCAN_IDLE : STATE_SCAN_START,
+        STATE_SCAN_START : STATE_SCAN_ZONES,
+        STATE_SCAN_ZONES: STATE_SCAN_OUTPUTS,
+        STATE_SCAN_OUTPUTS : STATE_SCAN_AREAS,
+        STATE_SCAN_AREAS : STATE_SCAN_KEYPADS,
+        STATE_SCAN_KEYPADS : STATE_SCAN_TASKS,
+        STATE_SCAN_TASKS : STATE_SCAN_THERMOSTATS,
+        STATE_SCAN_THERMOSTATS : STATE_SCAN_X10,
+        STATE_SCAN_X10 : STATE_SCAN_USERS,
+        STATE_SCAN_USERS : STATE_SCAN_COUNTERS,
+        STATE_SCAN_COUNTERS : STATE_SCAN_SETTINGS,
+        STATE_SCAN_SETTINGS : STATE_SCAN_VERSION,
+        STATE_SCAN_VERSION : STATE_SCAN_IDLE,
+        }
+
+    def __init__(self, pyelk):
+        self._pyelk = pyelk
+        self._stopping = False
+        self._state = self.STATE_SCAN_IDLE
+        self._event = threading.Event()
+        thread = threading.Thread(target=self.run, args=())
+        thread.start()
+
+    def stop(self):
+        """Stop thread."""
+        self._stopping = True
+
+    def pause(self):
+        """Pause thread."""
+        self._event.clear()
+
+    def resume(self):
+        """Resume thread."""
+        self._event.set()
+
+    @property
+    def state(self):
+        """Return thread state."""
+        return self._state
+
+    def run(self):
+        """Thread that handles rescanning of Elk system."""
+        while not self._stopping:
+            if self._state == self.STATE_SCAN_IDLE:
+                _LOGGER.debug('Scanning idle')
+                self._pyelk.state = self._pyelk.STATE_RUNNING
+                self._event.clear()
+                self._event.wait()
+            if self._state == self.STATE_SCAN_START:
+                _LOGGER.debug('Starting scan')
+            elif self._state == self.STATE_SCAN_ZONES:
+                _LOGGER.debug('Scanning zones')
+                self._pyelk.scan_zones()
+            elif self._state == self.STATE_SCAN_OUTPUTS:
+                _LOGGER.debug('Scanning outputs')
+                self._pyelk.scan_outputs()
+            elif self._state == self.STATE_SCAN_AREAS:
+                _LOGGER.debug('Scanning areas')
+                self._pyelk.scan_areas()
+            elif self._state == self.STATE_SCAN_KEYPADS:
+                _LOGGER.debug('Scanning keypads')
+                self._pyelk.scan_keypads()
+            elif self._state == self.STATE_SCAN_TASKS:
+                _LOGGER.debug('Scanning tasks')
+                self._pyelk.scan_tasks()
+            elif self._state == self.STATE_SCAN_X10:
+                _LOGGER.debug('Scanning X10')
+                self._pyelk.scan_x10()
+            elif self._state == self.STATE_SCAN_USERS:
+                _LOGGER.debug('Scanning users')
+                self._pyelk.scan_users()
+            elif self._state == self.STATE_SCAN_COUNTERS:
+                _LOGGER.debug('Scanning counters')
+                self._pyelk.scan_counters()
+            elif self._state == self.STATE_SCAN_SETTINGS:
+                _LOGGER.debug('Scanning settings')
+                self._pyelk.scan_settings()
+            elif self._state == self.STATE_SCAN_VERSION:
+                _LOGGER.debug('Scanning version')
+                self._pyelk.scan_version()
+            self._state = self.SCAN_NEXT[self._state]
+
+
 class Elk(object):
     """
     This is the main class that handles interaction with the Elk panel
@@ -79,16 +181,6 @@ class Elk(object):
 
     STATE_DISCONNECTED = 0
     STATE_RUNNING = 1
-    STATE_SCAN_AREAS = 10
-    STATE_SCAN_COUNTERS = 11
-    STATE_SCAN_KEYPADS = 12
-    STATE_SCAN_OUTPUTS = 13
-    STATE_SCAN_SETTINGS = 14
-    STATE_SCAN_TASKS = 15
-    STATE_SCAN_THERMOSTATS = 16
-    STATE_SCAN_USERS = 17
-    STATE_SCAN_X10 = 18
-    STATE_SCAN_ZONES = 19
 
     def __init__(self, config, log=None):
         """Initializes Elk object.
@@ -108,7 +200,7 @@ class Elk(object):
         self._queue_incoming_elk_events = None
         self._queue_outgoing_elk_events = None
         self._queue_exported_events = deque(maxlen=1000)
-        self._rescan_in_progress = False
+        self._rescan_thread = Scanner(self)
         self._update_in_progress = False
         self._elk_versions = None
         self.AREAS = []
@@ -245,6 +337,14 @@ class Elk(object):
                 self.state_load()
             self._rescan()
 
+    @property
+    def _rescan_in_progress(self):
+        """Get state of rescan thread."""
+        if self._rescan_thread.state == Scanner.STATE_SCAN_IDLE:
+            return False
+        else:
+            return True
+
     def state_save(self):
         """Save current state to fast load state file."""
         max_range = {
@@ -354,22 +454,7 @@ class Elk(object):
         """
         if self._rescan_in_progress is True:
             return
-        self._rescan_in_progress = True
-        self.scan_zones()
-        self.scan_outputs()
-        self.scan_areas()
-        self.scan_keypads()
-        self.scan_tasks()
-        self.scan_thermostats()
-        self.scan_x10()
-        self.scan_users()
-        self.scan_counters()
-        self.scan_settings()
-        event = Event()
-        event.type = Event.EVENT_VERSION
-        self.elk_event_send(event)
-        self._rescan_in_progress = False
-        self._state = self.STATE_RUNNING
+        self._rescan_thread.resume()
 
     def exported_event_enqueue(self, data):
         """Add event to the exported event deque.
@@ -714,6 +799,12 @@ class Elk(object):
         version_m1xep = event.data_str[6:8] + '.' + event.data_str[8:10]\
         + '.' + event.data_str[10:12]
         self._elk_versions = {'Elk M1' : version_elk, 'M1XEP' : version_m1xep}
+
+    def scan_version(self):
+        """Scan Elk system version."""
+        event = Event()
+        event.type = Event.EVENT_VERSION
+        self.elk_event_send(event)
 
     def scan_zones(self):
         """Scan all Zones and their information."""
