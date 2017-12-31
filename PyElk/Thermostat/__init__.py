@@ -258,7 +258,7 @@ class Thermostat(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Thermostat', pyelk, number)
         # Initialize Thermostat specific things
         self._mode = None
         self._hold = None

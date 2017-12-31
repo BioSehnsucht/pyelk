@@ -82,7 +82,7 @@ class Keypad(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Keypad', pyelk, number)
         # Initialize Keypad specific things
         self._pressed = 0
         self._illum = [0, 0, 0, 0, 0, 0]

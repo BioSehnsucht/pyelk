@@ -20,7 +20,7 @@ class User(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('User', pyelk, number)
         # Initialize Output specific things
         if self._number == 200:
             self._description = 'Unused'

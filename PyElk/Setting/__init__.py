@@ -31,7 +31,7 @@ class Setting(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Setting', pyelk, number)
         # Initialize Output specific things
         self._format = self.FORMAT_NUMBER
 

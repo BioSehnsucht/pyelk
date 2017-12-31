@@ -139,7 +139,7 @@ class Area(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Area', pyelk, number)
         # Initialize Area specific things
         self._last_user_num = 0
         self._last_user_at = 0

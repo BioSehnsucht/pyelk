@@ -28,7 +28,7 @@ class Task(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Task', pyelk, number)
         # Initialize Task specific things
         self._status = self.STATUS_OFF
         self._last_activated = 0

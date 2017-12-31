@@ -187,7 +187,7 @@ class Zone(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Zone', pyelk, number)
         # Initialize Zone specific things
         self._state = 0
         self._definition = 0

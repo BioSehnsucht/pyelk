@@ -1,6 +1,7 @@
 """Elk Node."""
 from collections import namedtuple
 from collections import deque
+from inspect import signature
 import logging
 import time
 import traceback
@@ -11,12 +12,14 @@ class Node(object):
     """Base object for other Elk object types."""
     STATUS_STR = {}
 
-    def __init__(self, pyelk=None, number=None):
+    def __init__(self, classname=None, pyelk=None, number=None):
         """Initializes Node object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
         number: Index number of this object (default None).
         """
+        # Name of class
+        self._classname = classname
         # Area the object is assocaited with (1-based)
         self._area = None
         # Area (0-based)
@@ -64,6 +67,11 @@ class Node(object):
             elif state_key == 'description':
                 self.description = state['description']
         return
+
+    @property
+    def classname(self):
+        """Returns the class name of this class."""
+        return self._classname
 
     @property
     def area(self):
@@ -175,11 +183,21 @@ class Node(object):
             return prefix + str(self._number)
         return self._description
 
-    def _callback(self):
+    def _callback(self, data=None):
         """Perform update callback, if possible."""
         for callback in self._update_callbacks:
-            callback()
+            sig = signature(callback)
+            if len(sig.parameters) == 0:
+                callback()
+            if len(sig.parameters) == 1:
+                callback(self)
+            if len(sig.parameters) == 2:
+                callback(self, data)
+        # If there were no callbacks to be made, make a call upwards
+        # We may have new devices that need to be handled
+        if len(self._update_callbacks) == 0 and self._pyelk is not None:
+            self._pyelk.promoted_callback(self, data)
 
-    def callback_trigger(self):
+    def callback_trigger(self, data=None):
         """Trigger a callback."""
-        self._callback()
+        self._callback(data)

@@ -84,7 +84,7 @@ class X10(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('X10', pyelk, number)
         # Initialize PLC specific things
         self._house_code, self._device_code = self.housecode_from_int(self._number)
         self._level = 0

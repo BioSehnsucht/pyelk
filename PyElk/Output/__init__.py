@@ -29,7 +29,7 @@ class Output(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Output', pyelk, number)
         # Initialize Output specific things
         # (none currently)
 

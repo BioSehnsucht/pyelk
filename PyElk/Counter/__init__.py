@@ -20,7 +20,7 @@ class Counter(Node):
         number: Index number of this object (default None).
         """
         # Let Node initialize common things
-        super().__init__(pyelk, number)
+        super().__init__('Counter', pyelk, number)
         # Initialize Output specific things
         # (none currently)
 

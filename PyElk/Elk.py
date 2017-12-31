@@ -11,6 +11,7 @@ import threading
 from .Connection import Connection
 
 from .Const import *
+from .Node import Node
 from .Area import Area
 from .Counter import Counter
 from .Event import Event
@@ -166,7 +167,7 @@ class Scanner(object):
             self._state = self.SCAN_NEXT[self._state]
 
 
-class Elk(object):
+class Elk(Node):
     """
     This is the main class that handles interaction with the Elk panel
 
@@ -175,23 +176,32 @@ class Elk(object):
        ex: 'socket://192.168.12.34:2101' or '/dev/ttyUSB0'
     |  config['ratelimit'] [optional]: rate limit for outgoing events (default 10/s)
     |  log: [optional] Log file class from logging module
-
-    :ivar log: Logger used by the class and its children.
     """
 
     STATE_DISCONNECTED = 0
-    STATE_RUNNING = 1
+    STATE_CONNECTING = 1
+    STATE_RUNNING = 2
+    STATE_PAUSED = 3
+
+    STATUS_STR = {
+        STATE_DISCONNECTED : 'Disconnected',
+        STATE_CONNECTING : 'Connecting',
+        STATE_RUNNING : 'Running',
+        STATE_PAUSED : 'Paused',
+    }
 
     def __init__(self, config, log=None):
         """Initializes Elk object.
 
-        address: Host to connect to in either
-        "socket://IP.Add.re.ss:Port" or "/dev/ttyUSB0" format.
+        config: dictionary containing configuration
         usercode: Alarm user code (not currently used, may be removed).
         log: Logger object to use.
         """
+        # Let Node initialize common things
+        super().__init__('System')
         self._connection = None
-        self._state = self.STATE_DISCONNECTED
+        self._status = self.STATE_DISCONNECTED
+        self._unpaused_status = None
         self._state_fastload_enabled = True
         self._state_fastload_file = 'PyElk-fastload.json'
         self._events = None
@@ -315,27 +325,54 @@ class Elk(object):
                     self.COUNTERS.append(device)
                 elif device_class == 'setting':
                     self.SETTINGS.append(device)
+
+        # Perform fast load of previous state before returning
+        if 'fastload' in self._config:
+            self._state_fastload_enabled = self._config['fastload']
+        if 'fastload_file' in self._config:
+            self._state_fastload_file = self._config['fastload_file']
+        if self._state_fastload_enabled:
+            self.state_load()
+
+    def connect(self):
+        """Attempt to connect to Elk."""
         try:
             ratelimit = 10
             if 'ratelimit' in self._config:
                 ratelimit = self._config['ratelimit']
+            self._status = STATE_CONNECTING
             self._connection = Connection()
             self._connection.connect(self, self._config['host'], ratelimit)
 
         except ValueError as exception_error:
+            self._status = STATE_DISCONNECTED
             try:
                 self.log.error(exception_error.message)
             except AttributeError:
                 self.log.error(exception_error.args[0])
 
         if self._connection.connected:
-            if 'fastload' in self._config:
-                self._state_fastload_enabled = self._config['fastload']
-            if 'fastload_file' in self._config:
-                self._state_fastload_file = self._config['fastload_file']
-            if self._state_fastload_enabled:
-                self.state_load()
+            self._status = STATE_RUNNING
             self._rescan()
+
+    def stop(self):
+        """Stop PyElk and disconnect from Elk."""
+        self._status = STATE_DISCONNECTED
+        self._connection = None
+        return
+
+    def description_pretty(self, prefix='Elk M1G System'):
+        """Elk system description."""
+        return prefix
+
+    def promoted_callback(self, node, data=None):
+        """Handles callbacks that are promoted upwards due
+           to not having a callback registered."""
+        if (data is None) and (node is not None):
+            self.callback_trigger(node)
+        else:
+            self.callback_trigger(data)
+        return
 
     @property
     def _rescan_in_progress(self):
@@ -590,16 +627,25 @@ class Elk(object):
                         if rp_status == 0:
                             self._queue_outgoing_elk_events.clear()
                             self._connection._elkrp_connected = False
+                            if self._unpaused_status is not None:
+                                self._status = self._unpaused_status
+                                self._unpaused_status = None
                         # Status 1: Elk RP connected, M1XEP poll reply, this
                         # occurs in response to commands sent while RP is
                         # connected
                         elif rp_status == 1:
                             self._connection._elkrp_connected = True
+                            if self._status is not STATE_PAUSED:
+                                self._unpaused_status = self._status
+                                self._status = STATE_PAUSED
                         # Status 2: Elk RP connected, M1XEP poll reply during
                         # M1XEP powerup/reboot, this happens during RP
                         # disconnect sequence before it's completely disco'd
                         elif rp_status == 2:
                             self._connection._elkrp_connected = True
+                            if self._status is not STATE_PAUSED:
+                                self._unpaused_status = self._status
+                                self._status = STATE_PAUSED
                         _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_ELKRP')
                         continue
                     elif event.type == Event.EVENT_ETHERNET_TEST:
@@ -799,6 +845,8 @@ class Elk(object):
         version_m1xep = event.data_str[6:8] + '.' + event.data_str[8:10]\
         + '.' + event.data_str[10:12]
         self._elk_versions = {'Elk M1' : version_elk, 'M1XEP' : version_m1xep}
+        self._updated_at = event.time
+        self._callback()
 
     def scan_version(self):
         """Scan Elk system version."""
