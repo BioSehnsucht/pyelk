@@ -340,24 +340,24 @@ class Elk(Node):
             ratelimit = 10
             if 'ratelimit' in self._config:
                 ratelimit = self._config['ratelimit']
-            self._status = STATE_CONNECTING
+            self._status = self.STATE_CONNECTING
             self._connection = Connection()
             self._connection.connect(self, self._config['host'], ratelimit)
 
         except ValueError as exception_error:
-            self._status = STATE_DISCONNECTED
+            self._status = self.STATE_DISCONNECTED
             try:
                 self.log.error(exception_error.message)
             except AttributeError:
                 self.log.error(exception_error.args[0])
 
         if self._connection.connected:
-            self._status = STATE_RUNNING
+            self._status = self.STATE_RUNNING
             self._rescan()
 
     def stop(self):
         """Stop PyElk and disconnect from Elk."""
-        self._status = STATE_DISCONNECTED
+        self._status = self.STATE_DISCONNECTED
         self._connection = None
         return
 
@@ -635,17 +635,17 @@ class Elk(Node):
                         # connected
                         elif rp_status == 1:
                             self._connection._elkrp_connected = True
-                            if self._status is not STATE_PAUSED:
+                            if self._status is not self.STATE_PAUSED:
                                 self._unpaused_status = self._status
-                                self._status = STATE_PAUSED
+                                self._status = self.STATE_PAUSED
                         # Status 2: Elk RP connected, M1XEP poll reply during
                         # M1XEP powerup/reboot, this happens during RP
                         # disconnect sequence before it's completely disco'd
                         elif rp_status == 2:
                             self._connection._elkrp_connected = True
-                            if self._status is not STATE_PAUSED:
+                            if self._status is not self.STATE_PAUSED:
                                 self._unpaused_status = self._status
-                                self._status = STATE_PAUSED
+                                self._status = self.STATE_PAUSED
                         _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_ELKRP')
                         continue
                     elif event.type == Event.EVENT_ETHERNET_TEST:

@@ -32,6 +32,7 @@ if __name__ == '__main__':
               }
 
     ELK = PyElk.Elk(config, log=_LOGGER)
+    ELK.connect()
 
     time.sleep(1)
     versions = ELK.get_version()
