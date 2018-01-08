@@ -12,7 +12,7 @@ class Node(object):
     """Base object for other Elk object types."""
     STATUS_STR = {}
 
-    def __init__(self, classname=None, pyelk=None, number=None):
+    def __init__(self, classname=None, pyelk=None, number=0):
         """Initializes Node object.
 
         pyelk: Pyelk.Elk object that this object is for (default None).
@@ -27,7 +27,7 @@ class Node(object):
         # Index number of this object (0-based)
         self._index = number
         # Index number of this object (1-based)
-        self._number = self._index + 1
+        self._number = number+1
         # Device enabled ?
         self._enabled = True
         # Device included (true) /excluded (false) ?
