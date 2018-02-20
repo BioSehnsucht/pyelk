@@ -14,8 +14,8 @@ class SerialInputHandler(serial.threaded.LineReader):
     def set_pyelk(self, pyelk):
         """Sets the pyelk instance to use."""
         self._pyelk = pyelk
-        self._queue = deque(maxlen=1000)
-        self._pyelk._queue_incoming_elk_events = self._queue
+        #self._queue = deque(maxlen=1000)
+        #self._pyelk._queue_incoming_elk_events = self._queue
 
     # Implement Protocol class functions for Threaded Serial
     def connection_made(self, transport):
@@ -83,11 +83,16 @@ class SerialOutputHandler(object):
                 if event.time <= time.time():
                     self._pyelk.elk_event_send_actual(event)
                     self._queue.remove(event)
+                    # If retries is greater than 0 and we have an expect
+                    if (event.retries > 0) and (len(event.expect) > 0):
+                        event.retries = event.retries - 1
+                        event.time = time.time() + event.retry_delay
+                        # Queue the retry
+                        self._queue.append(event)
+                    # Sleep after sending to avoid flooding
                     time.sleep(self._interval)
-                    pending = False
-                else:
-                    pending = True
-            if pending:
+            # Sleep if more events not yet able to be sent
+            if len(self._queue) > 0:
                 time.sleep(self._interval)
 
 class Connection():

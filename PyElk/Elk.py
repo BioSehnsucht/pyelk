@@ -149,6 +149,9 @@ class Scanner(object):
             elif self._state == self.STATE_SCAN_TASKS:
                 _LOGGER.debug('Scanning tasks')
                 self._pyelk.scan_tasks()
+            elif self._state == self.STATE_SCAN_THERMOSTATS:
+                _LOGGER.debug('Scanning thermostats')
+                self._pyelk.scan_thermostats()
             elif self._state == self.STATE_SCAN_X10:
                 _LOGGER.debug('Scanning X10')
                 self._pyelk.scan_x10()
@@ -207,9 +210,9 @@ class Elk(Node):
         self._events = None
         self._reconnect_thread = None
         self._config = config
-        self._queue_incoming_elk_events = None
+        self._queue_incoming_elk_events = deque(maxlen=1000)
         self._queue_outgoing_elk_events = None
-        self._queue_exported_events = deque(maxlen=1000)
+        #self._queue_exported_events = deque(maxlen=1000)
         self._rescan_thread = Scanner(self)
         self._update_in_progress = False
         self._elk_versions = None
@@ -334,6 +337,12 @@ class Elk(Node):
         if self._state_fastload_enabled:
             self.state_load()
 
+    @property
+    def connected(self):
+        if self._status == self.STATE_RUNNING or self._status == self.STATE_PAUSED:
+                return True
+        return False
+
     def connect(self):
         """Attempt to connect to Elk."""
         try:
@@ -448,6 +457,7 @@ class Elk(Node):
         """Load state from fast load state file."""
 
         state_data = {}
+        _LOGGER.debug('Performing fastload')
         try:
             with open(self._state_fastload_file, 'r') as f:
                 state_data = json.load(f)
@@ -509,7 +519,7 @@ class Elk(Node):
         """
         event_str = event.to_string()
         if self._connection._elkrp_connected:
-            _LOGGER.debug('Discarding due to ElkRP: {}\n'.format(repr(event_str)))
+            _LOGGER.debug('Not queuing event due to active ElkRP: {}\n'.format(repr(event_str)))
         else:
             _LOGGER.debug('Queuing: {}\n'.format(repr(event_str)))
             self._queue_outgoing_elk_events.append(event)
@@ -532,6 +542,14 @@ class Elk(Node):
         event = Event()
         event.parse(data)
         self._queue_incoming_elk_events.append(event)
+        # Remove any pending retries if this is an expected reply
+        for retry_event in list(self._queue_outgoing_elk_events):
+            if len(retry_event.expect) > 0:
+                match_len = len(retry_event.expect)
+                data_str = event.data_str[0:match_len]
+                if data_str == retry_event.expect:
+                    self._queue_outgoing_elk_events.remove(retry_event)
+            break;
         self.update()
 
     def elk_event_scan(self, event_type, data_match=None, timeout=10,
@@ -548,6 +566,7 @@ class Elk(Node):
         output_scan: If true, we scan the output queue instead
         reverse: If true, scan the queue in reverse order
         """
+        sleep_interval = 0.1
         scan_queue = None
         if output_scan:
             scan_queue = self._queue_outgoing_elk_events
@@ -562,7 +581,14 @@ class Elk(Node):
         event = None
         if (data_match is not None) and (not isinstance(data_match, list)):
             data_match = [data_match]
+        first_try = True
         while time.time() <= endtime:
+            # If not our first loop, sleep for a moment
+            if first_try:
+                first_try = False
+            else:
+                time.sleep(sleep_interval)
+            # Iterate the queue for events
             for elem in list(scan_queue)[::reverse_flag]:
                 if elem.type in event_type:
                     event = elem
@@ -1066,24 +1092,34 @@ class Elk(Node):
                 node_index = reply_number - 1
                 if reply_type == Event.DESCRIPTION_ZONE_NAME:
                     self.ZONES[node_index].description = reply_name.strip()
+                    self.ZONES[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_OUTPUT_NAME:
                     self.OUTPUTS[node_index].description = reply_name.strip()
+                    self.OUTPUTS[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_AREA_NAME:
                     self.AREAS[node_index].description = reply_name.strip()
+                    self.AREAS[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_KEYPAD_NAME:
                     self.KEYPADS[node_index].description = reply_name.strip()
+                    self.KEYPADS[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_LIGHT_NAME:
                     self.X10[node_index].description = reply_name.strip()
+                    self.X10[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_TASK_NAME:
                     self.TASKS[node_index].description = reply_name.strip()
+                    self.TASKS[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_USER_NAME:
                     self.USERS[node_index].description = reply_name.strip()
+                    self.USERS[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_COUNTER_NAME:
                     self.COUNTERS[node_index].description = reply_name.strip()
+                    self.COUNTERS[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_CUSTOM_SETTING_NAME:
                     self.SETTINGS[node_index].description = reply_name.strip()
+                    self.SETTINGS[node_index].callback_trigger()
                 elif reply_type == Event.DESCRIPTION_THERMOSTAT_NAME:
                     self.THERMOSTATS[node_index].description = reply_name.strip()
+                    self.THERMOSTATS[node_index].callback_trigger()
                 return reply_number+1
         return False
 

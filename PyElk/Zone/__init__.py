@@ -195,6 +195,12 @@ class Zone(Node):
         self._voltage = 0.0
         self._temp = -460
 
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        super().state_load(state)
+        if self._area > 0:
+            self._pyelk.AREAS[self._area_index].member_zone[self._index] = True
+
     @property
     def temp(self):
         """Return temperature."""

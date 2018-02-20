@@ -217,6 +217,9 @@ class Event(object):
         self._checksum = ''
         self._time = time.time()
         self._pyelk = pyelk
+        self._retries = 0
+        self._expect = ''
+        self._retry_delay = 1.0
 
     @property
     def len(self):
@@ -253,6 +256,30 @@ class Event(object):
     @time.setter
     def time(self, value):
         self._time = value
+
+    @property
+    def retries(self):
+        return self._retries
+
+    @retries.setter
+    def retries(self, value):
+        self._retries = value
+
+    @property
+    def expect(self):
+        return self._expect
+
+    @expect.setter
+    def expect(self, value):
+        self._expect = value
+
+    @property
+    def retry_delay(self):
+        return self._retry_delay
+
+    @retry_delay.setter
+    def retry_delay(self, value):
+        self._retry_delay = value
 
     def age(self):
         """Age of the event (time since event was received)."""

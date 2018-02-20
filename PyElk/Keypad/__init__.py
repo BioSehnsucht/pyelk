@@ -93,6 +93,12 @@ class Keypad(Node):
         self._last_user_at = 0
         self._last_user_name = 'N/A'
 
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        super().state_load(state)
+        if self._area > 0:
+            self._pyelk.AREAS[self._area_index].member_keypad[self._index] = True
+
     @property
     def temp(self):
         """Returns the current temperature."""

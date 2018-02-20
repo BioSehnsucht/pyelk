@@ -140,6 +140,7 @@ class Omni2Message():
         self._length = 0
         self._msg_type = 0
         self._data = []
+        self._data_str = ''
         self._checksum = 0
 
     @property
@@ -176,6 +177,7 @@ class Omni2Message():
         return self._checksum
 
     def _calculate_checksum(self):
+        """Calculate checksum"""
         checksum = 0
         checksum = checksum + self._number
         checksum = checksum + int(
@@ -188,6 +190,7 @@ class Omni2Message():
         return self._checksum
 
     def encode(self):
+        """Encode Omni2 Message"""
         message = ''
         number = format(self._number, '02x')
         len_type = format(self._length, '1x') + format(self._msg_type, '1x')
@@ -200,9 +203,11 @@ class Omni2Message():
         data_padding = data_padding.ljust(30 - (2 * len(self._data)), '0')
         checksum = format(self._calculate_checksum(), '02x')
         message = number + len_type + data + checksum + data_padding
+        self._data_str = data
         return message
 
     def decode(self, message):
+        """Decode Omni2 message"""
         self._number = int(message[0:2], 16) & 127
         self._length = int(message[2], 16)
         self._msg_type = int(message[3], 16)
@@ -211,6 +216,16 @@ class Omni2Message():
             data = message[4:4+(self._length * 2)]
             for di in range(0,self._length):
                 self._data.append(int(data[(di * 2):(di * 2) + 2], 16))
+
+    @property
+    def expected(self):
+        """Get expected reply data"""
+        expected_str = format(self._number + 127, '02x')
+        expected_str = expected_str + format(self._length, '1x')
+        expected_str = expected_str + format(self._msg_type, '1x')
+        expected_str = expected_str + self._data_str[0]
+        return expected_str
+
 
 class Thermostat(Node):
     """Represents a Thermostat in the Elk."""
@@ -419,7 +434,7 @@ class Thermostat(Node):
             return self.FAN_STR[self._fan]
         return 'Unknown'
 
-    def _set_thermostat(self, setting, value):
+    def _set_thermostat(self, setting, value, delay_increment=2):
         """Set the thermostat using our properties.
 
         Using EVENT_THERMOSTAT_SET.
@@ -434,6 +449,9 @@ class Thermostat(Node):
         event.type = Event.EVENT_THERMOSTAT_SET
         event.data_str = format(self._number, '02') \
         + format(value, '02') + format(setting, '01')
+        last_event_time = self._get_last_omni_time()
+        if last_event_time:
+            event.delay(last_event_time + delay_increment, False)
         self._pyelk.elk_event_send(event)
 
     def set_mode(self, value):
@@ -450,19 +468,21 @@ class Thermostat(Node):
 
     def set_setpoint_cool(self, value):
         """Set the thermostat cool setpoint."""
-        if value < 1:
-            value = 1
-        elif value > 99:
-            value = 99
-        self._set_thermostat(self.SET_SETPOINT_COOL, value)
+        if type(value) == int or type(value) == float:
+            if value < 1:
+                value = 1
+            elif value > 99:
+                value = 99
+            self._set_thermostat(self.SET_SETPOINT_COOL, value)
 
     def set_setpoint_heat(self, value):
         """Set the thermostat heat setpoint."""
-        if value < 1:
-            value = 1
-        elif value > 99:
-            value = 99
-        self._set_thermostat(self.SET_SETPOINT_HEAT, value)
+        if type(value) == int or type(value) == float:
+            if value < 1:
+                value = 1
+            elif value > 99:
+                value = 99
+            self._set_thermostat(self.SET_SETPOINT_HEAT, value)
 
     def request_temp(self):
         """Request temperature update from thermostat."""
@@ -521,12 +541,15 @@ class Thermostat(Node):
         event = Event()
         event.type = Event.EVENT_OMNISTAT_DATA_REQUEST
         event.data_str = message.encode()
+        event.retries = 5
+        event.retry_delay = 3
+        event.expect = message.expected
         last_event_time = self._get_last_omni_time()
         if last_event_time:
             event.delay(last_event_time + delay_increment, False)
         self._pyelk.elk_event_send(event)
 
-    def request_omni_group1(self):
+    def request_omni_group1(self, delay_increment=2):
         """Request Omnistat2 group 1 data."""
         # Note: it appears this won't work. Probably M1XSP eats it as this
         # is probably what it normally uses to poll the Omni thermostats
@@ -536,12 +559,15 @@ class Thermostat(Node):
         event = Event()
         event.type = Event.EVENT_OMNISTAT_DATA_REQUEST
         event.data_str = message.encode()
+        event.retries = 5
+        event.retry_delay = 3
+        event.expect = message.expected
         last_event_time = self._get_last_omni_time()
         if last_event_time:
-            event.delay(last_event_time + delay_increment)
+            event.delay(last_event_time + delay_increment, False)
         self._pyelk.elk_event_send(event)
 
-    def request_omni_group2(self):
+    def request_omni_group2(self, delay_increment=2):
         """Request Omnistat2 group 2 data."""
         message = Omni2Message()
         message.number = self._number
@@ -549,9 +575,12 @@ class Thermostat(Node):
         event = Event()
         event.type = Event.EVENT_OMNISTAT_DATA_REQUEST
         event.data_str = message.encode()
+        event.retries = 5
+        event.retry_delay = 3
+        event.expect = message.expected
         last_event_time = self._get_last_omni_time()
         if last_event_time:
-            event.delay(last_event_time + delay_increment)
+            event.delay(last_event_time + delay_increment, False)
         self._pyelk.elk_event_send(event)
 
     def unpack_event_temp_request_reply(self, event):
@@ -637,24 +666,27 @@ class Thermostat(Node):
             for reg in range(0,len(message.data)-1):
                 data = message.data[reg+1]
                 if (start_reg + reg) == message.REG_STATUS_MODEL:
-                    continue
-                if (start_reg + reg) == message.REG_SETUP_INDOOR_HUMIDITY:
+                    _LOGGER.debug('unpack_event_omnistat_data_reply - REG_STATUS_MODEL : ' + str(data))
+                elif (start_reg + reg) == message.REG_SETUP_INDOOR_HUMIDITY:
+                    _LOGGER.debug('unpack_event_omnistat_data_reply - REG_SETUP_INDOOR_HUMIDITY: ' + str(data))
                     self._humidity = message.data[reg+1]
-                    continue
-                if (start_reg + reg) == message.REG_STATUS_TEMPERATURE:
+                elif (start_reg + reg) == message.REG_STATUS_TEMPERATURE:
+                    _LOGGER.debug('unpack_event_omnistat_data_reply - REG_STATUS_TEMPERATURE: ' + str(data))
                     if data > 0 and data < 255:
                         self._temp_c, self._temp = self._temp_from_omnitemp(data)
-                    continue
-                if (start_reg + reg) == message.REG_STATUS_OUTSIDE_TEMP:
+                elif (start_reg + reg) == message.REG_STATUS_OUTSIDE_TEMP:
+                    _LOGGER.debug('unpack_event_omnistat_data_reply - REG_STATUS_OUTSIDE_TEMP: ' + str(data))
                     if data > 0 and data < 255:
                         self._temp_outside_c, self._temp_outside = self._temp_from_omnitemp(data)
-                    continue
-                if (start_reg + reg) == message.REG_SENSORS_CURRENT_TEMP_3:
+                elif (start_reg + reg) == message.REG_SENSORS_CURRENT_TEMP_3:
+                    _LOGGER.debug('unpack_event_omnistat_data_reply - REG_SENSORS_CURRENT_TEMP_3: ' + str(data))
                     if data > 0 and data < 255:
                         self._temp_3_c, self._temp_3 = self._temp_from_omnitemp(data)
-                    continue
-                if (start_reg + reg) == message.REG_SENSORS_CURRENT_TEMP_4:
+                elif (start_reg + reg) == message.REG_SENSORS_CURRENT_TEMP_4:
+                    _LOGGER.debug('unpack_event_omnistat_data_reply - REG_SENSORS_CURRENT_TEMP_4: ' + str(data))
                     if data > 0 and data < 255:
                         self._temp_4_c, self._temp_4 = self._temp_from_omnitemp(data)
-                    continue
-        return
+                else:
+                    _LOGGER.debug('unpack_event_omnistat_data_reply - unknown reg / data : ' + str(start_reg + reg) + ' / ' + str(data))
+        self._updated_at = event.time
+        self._callback()
