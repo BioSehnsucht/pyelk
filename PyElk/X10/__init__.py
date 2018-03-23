@@ -89,6 +89,19 @@ class X10(Node):
         self._house_code, self._device_code = self.housecode_from_int(self._number)
         self._level = 0
 
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        data = super().state_save()
+        data['level'] = self._level
+        return data
+
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        super().state_load(state)
+        for state_key in state:
+            if state_key == 'level':
+                self._level = state['level']
+
     def description_pretty(self, prefix='Light '):
         """X10 description, as text string (auto-generated if not set)."""
         # We can't know if devices really exist, only guess if they have an empty description
@@ -98,8 +111,9 @@ class X10(Node):
             self._enabled = True
         return super().description_pretty(prefix)
 
+    @property
     def house_pretty(self):
-        """Return house / device code as string."""
+        """Return house code as string."""
         return self.HOUSE_STR[self._house_code]
 
     @property
@@ -111,6 +125,11 @@ class X10(Node):
     def device_code(self):
         """Return device code."""
         return self._device_code
+
+    @property
+    def device_pretty(self):
+        """Return device code as string."""
+        return format(self._device_code, '02')
 
     @property
     def level(self):

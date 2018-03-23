@@ -35,6 +35,19 @@ class Setting(Node):
         # Initialize Output specific things
         self._format = self.FORMAT_NUMBER
 
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        data = super().state_save()
+        data['format'] = self._format
+        return data
+
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        super().state_load(state)
+        for state_key in state:
+            if state_key == 'format':
+                self._format = state['format']
+
     def description_pretty(self, prefix='Custom Setting '):
         """Area description, as text string (auto-generated if not set)."""
         return super().description_pretty(prefix)

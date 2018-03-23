@@ -164,6 +164,9 @@ class Event(object):
         'LW' : EVENT_TEMP_ALL_REPLY,
         'st' : EVENT_TEMP_REQUEST,
         'ST' : EVENT_TEMP_REQUEST_REPLY,
+        'tr' : EVENT_THERMOSTAT_DATA_REQUEST,
+        'TR' : EVENT_THERMOSTAT_DATA_REPLY,
+        'ts' : EVENT_THERMOSTAT_SET,
         't2' : EVENT_OMNISTAT_DATA_REQUEST,
         'T2' : EVENT_OMNISTAT_DATA_REPLY,
         'sw' : EVENT_SPEAK_WORD,
@@ -217,9 +220,14 @@ class Event(object):
         self._checksum = ''
         self._time = time.time()
         self._pyelk = pyelk
+        # Number of retries to attempt
         self._retries = 0
+        # Packet to expect to avoid retry
         self._expect = ''
+        # Delay before retrying if expected packet doesn't arrive
         self._retry_delay = 1.0
+        # When receiving an event that has pending retry matches, remove all
+        self._retry_remove_all = True
 
     @property
     def len(self):

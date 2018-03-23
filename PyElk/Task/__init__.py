@@ -33,6 +33,19 @@ class Task(Node):
         self._status = self.STATUS_OFF
         self._last_activated = 0
 
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        data = super().state_save()
+        data['last_activated'] = self._last_activated
+        return data
+
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        super().state_load(state)
+        for state_key in state:
+            if state_key == 'last_activated':
+                self._last_activated = state['last_activated']
+
     @property
     def last_activated(self):
         """Return the last activation timestamp."""

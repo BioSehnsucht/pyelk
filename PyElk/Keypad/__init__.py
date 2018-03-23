@@ -93,10 +93,31 @@ class Keypad(Node):
         self._last_user_at = 0
         self._last_user_name = 'N/A'
 
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        data = super().state_save()
+        data['last_user_num'] = self._last_user_num
+        data['last_user_at'] = self._last_user_at
+        data['last_user_name'] = self._last_user_name
+        data['temp_enabled'] = self._temp_enabled
+        data['temp'] = self._temp
+        return data
+
     def state_load(self, state):
         """Loads a save state object for fast load functionality."""
         super().state_load(state)
-        if self._area > 0:
+        for state_key in state:
+            if state_key == 'last_user_num':
+                self._last_user_num = state['last_user_num']
+            elif state_key == 'last_user_at':
+                self._last_user_at = state['last_user_at']
+            elif state_key == 'last_user_at':
+                self._last_user_name = state['last_user_name']
+            elif state_key == 'temp_enabled':
+                self._temp_enabled = state['temp_enabled']
+            elif state_key == 'temp':
+                self._temp = state['temp']
+        if self._area is not None and self._area > 0:
             self._pyelk.AREAS[self._area_index].member_keypad[self._index] = True
 
     @property
@@ -142,9 +163,10 @@ class Keypad(Node):
             self._pyelk.AREAS[node_index].member_keypad[self._index] = False
         if self._area > 0:
             self._pyelk.AREAS[self._area_index].member_keypad[self._index] = True
-
         self._updated_at = event.time
         self._callback()
+        self._pyelk.AREAS[self._area_index]._updated_at = event.time
+        self._pyelk.AREAS[self._area_index]._callback()
 
     def unpack_event_keypad_status_report(self, event):
         """Unpack EVENT_KEYPAD_STATUS_REPORT.
@@ -157,9 +179,10 @@ class Keypad(Node):
         C: If '1', code required to bypass
         P[8]: Beep and chime mode per Area (See Area constants)
         """
-        key = int(event.data_str[2:4])
-        if key != self._pressed:
-            self._pressed = key
+        keypad_number = int(event.data_str[0:2])
+        key_pressed = int(event.data_str[2:4])
+        if key_pressed != self._pressed:
+            self._pressed = key_pressed
         for i in range(0, 6):
             self._illum[i] = event.data_dehex()[4+i]
         if event.data[10] == '1':

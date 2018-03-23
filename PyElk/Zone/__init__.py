@@ -189,17 +189,50 @@ class Zone(Node):
         # Let Node initialize common things
         super().__init__('Zone', pyelk, number)
         # Initialize Zone specific things
-        self._state = 0
-        self._definition = 0
-        self._alarm = 0
+        self._state = None
+        self._definition = None
+        self._alarm = None
         self._voltage = 0.0
         self._temp = -460
+        self._enabled = False
+
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        data = super().state_save()
+        data['state'] = self._state
+        data['definition'] = self._definition
+        data['alarm'] = self._alarm
+        data['voltage'] = self._voltage
+        data['temp'] = self._temp
+        return data
 
     def state_load(self, state):
         """Loads a save state object for fast load functionality."""
         super().state_load(state)
-        if self._area > 0:
+        for state_key in state:
+            if state_key == 'state':
+                self._state = state['state']
+            elif state_key == 'definition':
+                self._definition = state['definition']
+            elif state_key == 'alarm':
+                self._alarm = state['alarm']
+            elif state_key == 'voltage':
+                self._voltage = state['voltage']
+            elif state_key == 'temp':
+                self._temp = state['temp']
+        self._check_enabled()
+        if self._area is not None and self._area > 0:
             self._pyelk.AREAS[self._area_index].member_zone[self._index] = True
+
+    def _check_enabled(self):
+        """Checks if enough state is loaded to be enabled."""
+        if (self._state == self.STATE_UNCONFIGURED) and (self._definition == self.DEFINITION_DISABLED):
+            self._enabled = False
+        else:
+            self._enabled = True
+        if self._state is None or self._definition is None or self._alarm is None:
+            self._enabled = False
+        return
 
     @property
     def temp(self):
@@ -242,15 +275,21 @@ class Zone(Node):
 
     def state_pretty(self):
         """Zone's current State as text string."""
-        return self.STATE_STR[self._state]
+        if self._state is not None:
+            return self.STATE_STR[self._state]
+        return ''
 
     def alarm_pretty(self):
         """Zone's Alarm type configuration as text string."""
-        return self.ALARM_STR[self._alarm]
+        if self._alarm is not None:
+            return self.ALARM_STR[self._alarm]
+        return ''
 
     def definition_pretty(self):
         """Zone's Definition type configuration as text string."""
-        return self.DEFINITION_STR[self._definition]
+        if self._definition is not None:
+            return self.DEFINITION_STR[self._definition]
+        return ''
 
     def dump(self):
         """Dump debugging data, to be removed."""
@@ -269,6 +308,7 @@ class Zone(Node):
         if self._alarm == data:
             return
         self._alarm = data
+        self._check_enabled()
         self._updated_at = event.time
         self._callback()
 
@@ -282,11 +322,7 @@ class Zone(Node):
         if self._definition == data:
             return
         self._definition = data
-        if (self._state == self.STATE_UNCONFIGURED)\
-        and (self._definition == self.DEFINITION_DISABLED):
-            self._enabled = False
-        else:
-            self._enabled = True
+        self._check_enabled()
         self._updated_at = event.time
         self._callback()
 
@@ -303,6 +339,7 @@ class Zone(Node):
             self._pyelk.AREAS[node_index].member_zone[self._index] = False
         if self._area > 0:
             self._pyelk.AREAS[self._area_index].member_zone[self._index] = True
+        self._check_enabled()
         self._updated_at = event.time
         self._callback()
 
@@ -317,6 +354,7 @@ class Zone(Node):
         if self._voltage == data:
             return
         self._voltage = data
+        self._check_enabled()
         self._updated_at = event.time
         self._callback()
 
@@ -333,11 +371,7 @@ class Zone(Node):
             return
         self._state = state
         self._status = status
-        if (self._state == self.STATE_UNCONFIGURED)\
-        and (self._definition == self.DEFINITION_DISABLED):
-            self._enabled = False
-        else:
-            self._enabled = True
+        self._check_enabled()
         self._updated_at = event.time
         self._callback()
 
@@ -355,6 +389,7 @@ class Zone(Node):
             return
         self._state = state
         self._status = status
+        self._check_enabled()
         self._updated_at = event.time
         self._callback()
 
@@ -369,5 +404,6 @@ class Zone(Node):
         data = int(event.data_str[3:6])
         data = data - 60
         self._temp = data
+        self._check_enabled()
         self._updated_at = event.time
         self._callback()

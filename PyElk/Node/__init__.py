@@ -152,11 +152,13 @@ class Node(object):
 
     def callback_add(self, method):
         """Add a method to list of callbacks to be called on update."""
-        self._update_callbacks.append(method)
+        if method not in self._update_callbacks:
+            self._update_callbacks.append(method)
 
     def callback_remove(self, method):
         """Remove a method from list of callbacks to be called on update."""
-        self._update_callbacks.remove(method)
+        if method in self._update_callbacks:
+            self._update_callbacks.remove(method)
 
     def age(self):
         """Age of the current object state (time since last update)."""
@@ -185,19 +187,25 @@ class Node(object):
 
     def _callback(self, data=None):
         """Perform update callback, if possible."""
+        if data is None:
+            data = self
         for callback in self._update_callbacks:
             sig = signature(callback)
             if len(sig.parameters) == 0:
                 callback()
             if len(sig.parameters) == 1:
-                callback(self)
+                callback(data)
             if len(sig.parameters) == 2:
                 callback(self, data)
         # If there were no callbacks to be made, make a call upwards
         # We may have new devices that need to be handled
         if len(self._update_callbacks) == 0 and self._pyelk is not None:
+            #_LOGGER.debug('_callback - promoting callback')
             self._pyelk.promoted_callback(self, data)
 
     def callback_trigger(self, data=None):
         """Trigger a callback."""
         self._callback(data)
+
+    def dump(self):
+        return

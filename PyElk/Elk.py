@@ -71,32 +71,34 @@ class Scanner(object):
 
     STATE_SCAN_IDLE = 0
     STATE_SCAN_START = 1
-    STATE_SCAN_AREAS = 10
-    STATE_SCAN_COUNTERS = 11
+    STATE_SCAN_VERSION = 2
+    STATE_SCAN_ZONES = 10
+    STATE_SCAN_AREAS = 11
     STATE_SCAN_KEYPADS = 12
-    STATE_SCAN_OUTPUTS = 13
-    STATE_SCAN_SETTINGS = 14
-    STATE_SCAN_TASKS = 15
-    STATE_SCAN_THERMOSTATS = 16
-    STATE_SCAN_USERS = 17
-    STATE_SCAN_X10 = 18
-    STATE_SCAN_ZONES = 19
-    STATE_SCAN_VERSION = 20
+    STATE_SCAN_COUNTERS = 13
+    STATE_SCAN_OUTPUTS = 14
+    STATE_SCAN_SETTINGS = 15
+    STATE_SCAN_TASKS = 16
+    STATE_SCAN_THERMOSTATS = 17
+    STATE_SCAN_USERS = 18
+    STATE_SCAN_X10 = 19
+    STATE_SCAN_COMPLETE = 30
 
     SCAN_NEXT = {
         STATE_SCAN_IDLE : STATE_SCAN_START,
-        STATE_SCAN_START : STATE_SCAN_ZONES,
-        STATE_SCAN_ZONES: STATE_SCAN_OUTPUTS,
-        STATE_SCAN_OUTPUTS : STATE_SCAN_AREAS,
+        STATE_SCAN_START : STATE_SCAN_VERSION,
+        STATE_SCAN_VERSION : STATE_SCAN_ZONES,
+        STATE_SCAN_ZONES: STATE_SCAN_AREAS,
         STATE_SCAN_AREAS : STATE_SCAN_KEYPADS,
-        STATE_SCAN_KEYPADS : STATE_SCAN_TASKS,
+        STATE_SCAN_KEYPADS : STATE_SCAN_COUNTERS,
+        STATE_SCAN_COUNTERS : STATE_SCAN_OUTPUTS,
+        STATE_SCAN_OUTPUTS : STATE_SCAN_SETTINGS,
+        STATE_SCAN_SETTINGS : STATE_SCAN_TASKS,
         STATE_SCAN_TASKS : STATE_SCAN_THERMOSTATS,
-        STATE_SCAN_THERMOSTATS : STATE_SCAN_X10,
-        STATE_SCAN_X10 : STATE_SCAN_USERS,
-        STATE_SCAN_USERS : STATE_SCAN_COUNTERS,
-        STATE_SCAN_COUNTERS : STATE_SCAN_SETTINGS,
-        STATE_SCAN_SETTINGS : STATE_SCAN_VERSION,
-        STATE_SCAN_VERSION : STATE_SCAN_IDLE,
+        STATE_SCAN_THERMOSTATS : STATE_SCAN_USERS,
+        STATE_SCAN_USERS : STATE_SCAN_X10,
+        STATE_SCAN_X10 : STATE_SCAN_COMPLETE,
+        STATE_SCAN_COMPLETE : STATE_SCAN_IDLE,
         }
 
     def __init__(self, pyelk):
@@ -137,36 +139,59 @@ class Scanner(object):
             elif self._state == self.STATE_SCAN_ZONES:
                 _LOGGER.debug('Scanning zones')
                 self._pyelk.scan_zones()
+                for node in self._pyelk.ZONES:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_OUTPUTS:
                 _LOGGER.debug('Scanning outputs')
                 self._pyelk.scan_outputs()
+                for node in self._pyelk.OUTPUTS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_AREAS:
                 _LOGGER.debug('Scanning areas')
                 self._pyelk.scan_areas()
+                for node in self._pyelk.AREAS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_KEYPADS:
                 _LOGGER.debug('Scanning keypads')
                 self._pyelk.scan_keypads()
+                for node in self._pyelk.KEYPADS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_TASKS:
                 _LOGGER.debug('Scanning tasks')
                 self._pyelk.scan_tasks()
+                for node in self._pyelk.TASKS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_THERMOSTATS:
                 _LOGGER.debug('Scanning thermostats')
                 self._pyelk.scan_thermostats()
+                for node in self._pyelk.THERMOSTATS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_X10:
                 _LOGGER.debug('Scanning X10')
                 self._pyelk.scan_x10()
+                for node in self._pyelk.X10:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_USERS:
                 _LOGGER.debug('Scanning users')
                 self._pyelk.scan_users()
+                for node in self._pyelk.USERS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_COUNTERS:
                 _LOGGER.debug('Scanning counters')
                 self._pyelk.scan_counters()
+                for node in self._pyelk.COUNTERS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_SETTINGS:
                 _LOGGER.debug('Scanning settings')
                 self._pyelk.scan_settings()
+                for node in self._pyelk.SETTINGS:
+                    node.callback_trigger()
             elif self._state == self.STATE_SCAN_VERSION:
                 _LOGGER.debug('Scanning version')
                 self._pyelk.scan_version()
+            elif self._state == self.STATE_SCAN_COMPLETE:
+                _LOGGER.debug('Scanning complete')
+                self._pyelk.state_save()
             self._state = self.SCAN_NEXT[self._state]
 
 
@@ -201,7 +226,7 @@ class Elk(Node):
         log: Logger object to use.
         """
         # Let Node initialize common things
-        super().__init__('System')
+        super().__init__('System', self)
         self._connection = None
         self._status = self.STATE_DISCONNECTED
         self._unpaused_status = None
@@ -216,6 +241,7 @@ class Elk(Node):
         self._rescan_thread = Scanner(self)
         self._update_in_progress = False
         self._elk_versions = None
+        self._save_needed = False
         self.AREAS = []
         self.COUNTERS = []
         self.KEYPADS = []
@@ -362,7 +388,9 @@ class Elk(Node):
 
         if self._connection.connected:
             self._status = self.STATE_RUNNING
-            self._rescan()
+            #self.rescan()
+            #while self._rescan_thread._state <= Scanner.STATE_SCAN_KEYPADS:
+            #    time.sleep(0.5)
 
     def stop(self):
         """Stop PyElk and disconnect from Elk."""
@@ -377,11 +405,10 @@ class Elk(Node):
     def promoted_callback(self, node, data=None):
         """Handles callbacks that are promoted upwards due
            to not having a callback registered."""
-        if (data is None) and (node is not None):
+        if len(self._update_callbacks) > 0:
             self.callback_trigger(node)
-        else:
-            self.callback_trigger(data)
-        return
+        #else:
+        #    _LOGGER.debug('canceling callback promotion - nothing to promote to')
 
     @property
     def _rescan_in_progress(self):
@@ -451,6 +478,8 @@ class Elk(Node):
 
         with open(self._state_fastload_file, 'w') as f:
             json.dump(state_data, f)
+
+        self._save_needed = False
         return
 
     def state_load(self):
@@ -493,7 +522,7 @@ class Elk(Node):
                         self.SETTINGS[node_index].state_load(data)
         return
 
-    def _rescan(self):
+    def rescan(self):
         """Rescan all things.
 
         Normally called on startup, and if the panel has left
@@ -547,9 +576,10 @@ class Elk(Node):
             if len(retry_event.expect) > 0:
                 match_len = len(retry_event.expect)
                 data_str = event.data_str[0:match_len]
-                if data_str == retry_event.expect:
+                if data_str.lower() == retry_event.expect.lower():
                     self._queue_outgoing_elk_events.remove(retry_event)
-            break;
+                    if not retry_event._retry_remove_all:
+                        break
         self.update()
 
     def elk_event_scan(self, event_type, data_match=None, timeout=10,
@@ -642,7 +672,7 @@ class Elk(Node):
                         # This is also sent immediately after RP disconnects
                         _LOGGER.debug('elk_queue_process - Event.EVENT_INSTALLER_EXIT')
                         # This needs to be spun into another thread probably, or done async
-                        self._rescan()
+                        self.rescan()
                         return
                     elif event.type == Event.EVENT_INSTALLER_ELKRP:
                         # Consume ElkRP Connect events
@@ -678,6 +708,9 @@ class Elk(Node):
                         # Consume ethernet test events,
                         # but we don't do anything with them
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ETHERNET_TEST')
+                        # This is actually a handy way to keep updating our save state without saving on every change
+                        if self._save_needed:
+                            self.state_save()
                         continue
                     elif event.type == Event.EVENT_ALARM_MEMORY:
                         # Alarm Memory update
@@ -702,6 +735,7 @@ class Elk(Node):
                         keypadnumber = int(event.data_str[15:17])
                         node_index = keypadnumber - 1
                         self.KEYPADS[node_index].unpack_event_user_code_entered(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_TASK_UPDATE:
                         # Task activated
@@ -716,6 +750,7 @@ class Elk(Node):
                         node_index = outputnumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_OUTPUT_UPDATE')
                         self.OUTPUTS[node_index].unpack_event_output_update(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_ZONE_UPDATE:
                         # Zone changed state
@@ -723,6 +758,7 @@ class Elk(Node):
                         node_index = zonenumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ZONE_UPDATE')
                         self.ZONES[node_index].unpack_event_zone_update(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_KEYPAD_STATUS_REPORT:
                         # Keypad changed state
@@ -730,18 +766,21 @@ class Elk(Node):
                         node_index = keypadnumber - 1
                         _LOGGER.debug('elk_queue_process - Event.EVENT_KEYPAD_STATUS_REPORT')
                         self.KEYPADS[node_index].unpack_event_keypad_status_report(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_ARMING_STATUS_REPORT:
                         # Alarm status changed
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ARMING_STATUS_REPORT')
                         for node_index in range(0, AREA_MAX_COUNT):
                             self.AREAS[node_index].unpack_event_arming_status_report(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_ALARM_ZONE_REPORT:
                         # Alarm zone changed
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ALARM_ZONE_REPORT')
                         for node_index in range(0, ZONE_MAX_COUNT):
                             self.ZONES[node_index].unpack_event_alarm_zone(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_TEMP_REQUEST_REPLY:
                         # Temp sensor update
@@ -762,6 +801,7 @@ class Elk(Node):
                             # Group 2 temp probe (Thermostat)
                             self.THERMOSTATS[node_index].unpack_event_temp_request_reply(event)
                             continue
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_THERMOSTAT_DATA_REPLY:
                         # Thermostat update
@@ -769,6 +809,7 @@ class Elk(Node):
                         node_index = int(event.data_str[0:2])-1
                         if node_index >= 0:
                             self.THERMOSTATS[node_index].unpack_event_thermostat_data_reply(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_PLC_CHANGE_UPDATE:
                         # PLC Change Update
@@ -777,12 +818,13 @@ class Elk(Node):
                         device_code = int(event.data_str[1:3])
                         offset = X10.housecode_to_index(hc=house_code+device_code)
                         self.X10[offset].unpack_event_plc_change_update(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_VERSION_REPLY:
                         # Version reply
                         _LOGGER.debug('elk_queue_process - Event.EVENT_VERSION_REPLY')
                         self.unpack_event_version_reply(event)
-                        self.state_save()
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_COUNTER_REPLY:
                         # Counter reply
@@ -790,6 +832,7 @@ class Elk(Node):
                         node_index = int(event.data_str[0:2])-1
                         if node_index >= 0:
                             self.COUNTERS[node_index].unpack_event_counter_reply(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_VALUE_READ_REPLY:
                         # Setting reply
@@ -803,6 +846,7 @@ class Elk(Node):
                         else:
                             # Reply one
                             self.SETTINGS[node_index].unpack_event_value_read_reply(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_RTC_REPLY:
                         # Real Time Clock data reply
@@ -814,12 +858,14 @@ class Elk(Node):
                         _LOGGER.debug('elk_queue_process - Event.EVENT_OUTPUT_STATUS_REPORT')
                         for node_index in range(0, OUTPUT_MAX_COUNT):
                             self.OUTPUTS[node_index].unpack_event_output_status_report(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_KEYPAD_AREA_REPLY:
                         # Keypad Area Reply
                         _LOGGER.debug('elk_queue_process - Event.EVENT_KEYPAD_AREA_REPLY')
                         for node_index in range(0, KEYPAD_MAX_COUNT):
                             self.KEYPADS[node_index].unpack_event_keypad_area_reply(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_PLC_STATUS_REPLY:
                         # PLC Status Reply
@@ -827,30 +873,35 @@ class Elk(Node):
                         group_base = int(event.data_str[0])
                         for node_index in range(group_base, group_base+64):
                             self.X10[node_index].unpack_event_plc_status_reply(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_ZONE_PARTITION_REPORT:
                         # Zone Partition Report
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ZONE_PARTITION_REPORT')
                         for node_index in range(0, ZONE_MAX_COUNT):
                             self.ZONES[node_index].unpack_event_zone_partition(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_ZONE_DEFINITION_REPLY:
                         # Zone Definition Reply
                         _LOGGER.debug('elk_queue_process - Event.EVENT_ZONE_DEFINITION_REPLY')
                         for node_index in range(0, ZONE_MAX_COUNT):
                             self.ZONES[node_index].unpack_event_zone_definition(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_ZONE_STATUS_REPORT:
                         # Zone Status Report
                         _LOGGER.debug('elk_queue_process - got Event.EVENT_ZONE_STATUS_REPORT')
                         for node_index in range(0, ZONE_MAX_COUNT):
                             self.ZONES[node_index].unpack_event_zone_status_report(event)
+                        self._save_needed = True
                         continue
                     elif event.type == Event.EVENT_OMNISTAT_DATA_REPLY:
                         # Omnistat 2 data reply
                         _LOGGER.debug('elk_queue_process - got Event.EVENT_OMNISTAT_DATA_REPLY')
                         for node_index in range(0, THERMOSTAT_MAX_COUNT):
                             self.THERMOSTATS[node_index].unpack_event_omnistat_data_reply(event)
+                        self._save_needed = True
                         continue
         self._update_in_progress = False
 
@@ -866,12 +917,15 @@ class Elk(Node):
         uummll: M1XEP version, UU=Most, MM=Middle, LL=Least significant
         D[36]: 36 zeros for future use
         """
-        version_elk = event.data_str[:2] + '.' + event.data_str[2:4]\
-        + '.' + event.data_str[4:6]
-        version_m1xep = event.data_str[6:8] + '.' + event.data_str[8:10]\
-        + '.' + event.data_str[10:12]
+        _LOGGER.debug('unpack_event_version_reply - version_elk')
+        version_elk = event.data_str[:2] + '.' + event.data_str[2:4] + '.' + event.data_str[4:6]
+        _LOGGER.debug('unpack_event_version_reply - version_m1xep')
+        version_m1xep = event.data_str[6:8] + '.' + event.data_str[8:10] + '.' + event.data_str[10:12]
+        _LOGGER.debug('unpack_event_version_reply - set versions')
         self._elk_versions = {'Elk M1' : version_elk, 'M1XEP' : version_m1xep}
+        _LOGGER.debug('unpack_event_version_reply - set updated')
         self._updated_at = event.time
+        _LOGGER.debug('unpack_event_version_reply - callback')
         self._callback()
 
     def scan_version(self):
@@ -990,7 +1044,7 @@ class Elk(Node):
         """Scan all Thermostats and their information."""
         for node_index in range(0, THERMOSTAT_MAX_COUNT):
             if self.THERMOSTATS[node_index].included is True:
-                self.THERMOSTATS[node_index].request_temp()
+                self.THERMOSTATS[node_index].request_data()
                 self.THERMOSTATS[node_index].detect_omni()
         desc_index = 1
         while (desc_index) and (desc_index <= THERMOSTAT_MAX_COUNT):

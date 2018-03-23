@@ -27,6 +27,7 @@ if __name__ == '__main__':
 
     print('Connecting to ' + host)
 
+    sys.path.insert(0,'..')
     import PyElk
 
     config = {'host' : host,
@@ -36,16 +37,20 @@ if __name__ == '__main__':
     ELK = PyElk.Elk(config, log=_LOGGER)
     ELK.connect()
 
-    time.sleep(1)
-    versions = ELK.get_version()
-    from pprint import pprint
-    pprint(versions)
-    #for o in range(1,209):
-    #    sys.stdout.write('Output {}: '.format(repr(ELK.OUTPUTS[o].description())))
-    #    sys.stdout.write('{}\n'.format(repr(ELK.OUTPUTS[o].status())))
-    pprint(ELK.X10[1]._description)
-    #ELK.X10[1].turn_on()
+    if ELK.status == ELK.STATE_DISCONNECTED:
+        print('Error connecting')
+    else:
+        ELK.rescan()
+        time.sleep(1)
+        versions = ELK.get_version()
+        from pprint import pprint
+        pprint(versions)
+        #for o in range(1,209):
+        #    sys.stdout.write('Output {}: '.format(repr(ELK.OUTPUTS[o].description())))
+        #    sys.stdout.write('{}\n'.format(repr(ELK.OUTPUTS[o].status())))
+        pprint(ELK.X10[1]._description)
+        #ELK.X10[1].turn_on()
 
-    while True:
-        ELK.update()
-        time.sleep(5)
+        while True:
+            ELK.update()
+            time.sleep(5)

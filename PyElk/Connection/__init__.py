@@ -5,6 +5,8 @@ import traceback
 import threading
 import serial
 import serial.threaded
+import urllib.parse as urlparse
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,7 +125,17 @@ class Connection():
         "socket://IP.Add.re.ss:Port" or "/dev/ttyUSB0" format.
         ratelimit: rate limit for outgoing events
         """
-        self._connection = serial.serial_for_url(address, timeout=1)
+        parsed_address = urlparse.urlparse(address)
+        options = urlparse.parse_qs(parsed_address.query)
+        options_flat = {}
+        path = ''
+        for option in options:
+            options_flat[option] = options[option][0]
+        if parsed_address.scheme == '':
+            path = parsed_address.path
+        else:
+            path = parsed_address.scheme + '://' + parsed_address.netloc
+        self._connection = serial.serial_for_url(path, timeout=1, **options_flat)
         self._connection_thread = serial.threaded.ReaderThread(self._connection, SerialInputHandler)
         self._connection_thread.start()
         self._connection_transport, self._connection_protocol = self._connection_thread.connect()

@@ -163,6 +163,37 @@ class Area(Node):
         for node_index in range(0, KEYPAD_MAX_COUNT):
             self._member_keypad.append(False)
 
+    def state_save(self):
+        """Returns a save state object for fast load functionality."""
+        data = super().state_save()
+        data['last_user_num'] = self._last_user_num
+        data['last_user_at'] = self._last_user_at
+        data['last_user_name'] = self._last_user_name
+        data['last_disarmed_at'] = self._last_disarmed_at
+        data['last_armed_at'] = self._last_armed_at
+        data['last_keypad_num'] = self._last_keypad_num
+        data['last_keypad_name'] = self._last_keypad_name
+        return data
+
+    def state_load(self, state):
+        """Loads a save state object for fast load functionality."""
+        super().state_load(state)
+        for state_key in state:
+            if state_key == 'last_user_num':
+                self._last_user_num = state['last_user_num']
+            elif state_key == 'last_user_at':
+                self._last_user_at = state['last_user_at']
+            elif state_key == 'last_user_at':
+                self._last_user_name = state['last_user_name']
+            elif state_key == 'last_disarmed_at':
+                self._last_disarmed_at = state['last_disarmed_at']
+            elif state_key == 'last_armed_at':
+                self._last_armed_at = state['last_armed_at']
+            elif state_key == 'last_keypad_num':
+                self._last_keypad_num = state['last_keypad_num']
+            elif state_key == 'last_keypad_name':
+                self._last_keypad_name = state['last_keypad_name']
+
     def description_pretty(self, prefix='Area '):
         """Area description, as text string (auto-generated if not set)."""
         return super().description_pretty(prefix)
