@@ -1,3 +1,5 @@
+This is abandoned. Please use https://github.com/gwww/elkm1 / https://pypi.org/project/elkm1-lib/
+
 PyElk
 -----
 
